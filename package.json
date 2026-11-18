@@ -1,0 +1,35 @@
+{
+  "name": "selfup",
+  "version": "1.0.0",
+  "description": "Gamified personal discipline & self-improvement tracker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "migrate": "node scripts/migrate.js",
+    "vapid": "node utils/generate-vapid.js",
+    "smoke": "node scripts/smoke.js",
+    "verify:restore": "node scripts/verify-restore.js",
+    "test": "node --test",
+    "test:e2e": "playwright test"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "chart.js": "4.4.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.4.0",
+    "pg": "^8.12.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "fake-indexeddb": "^6.2.8"
+  }
+}

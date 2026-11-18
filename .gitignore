@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+.env.*
+!.env.example
+*.lnk
+*.log
+*.dump
+backups/
+.selfup-local.pid
+test-results/
+playwright-report/

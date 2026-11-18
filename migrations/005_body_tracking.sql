@@ -1,0 +1,7 @@
+ALTER TABLE workouts
+  ADD COLUMN IF NOT EXISTS training_split TEXT,
+  ADD COLUMN IF NOT EXISTS distance_km NUMERIC(8,2),
+  ADD COLUMN IF NOT EXISTS steps INTEGER;
+
+ALTER TABLE diet_entries
+  ADD COLUMN IF NOT EXISTS protein_grams NUMERIC(7,1);

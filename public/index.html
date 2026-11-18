@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Small Wins — Daily Progress Tracker</title>
+<meta name="theme-color" content="#12141C" />
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Small Wins">
+<script src="/vendor/chart.umd.js"></script>
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/theme-init.js"></script>
+</head>
+<body>
+
+<a class="skip-link" href="#content">Skip to content</a>
+
+<div id="app">
+
+  <!-- Auth screen -->
+  <section id="auth-screen" class="auth-screen hidden">
+    <div class="auth-card">
+      <div class="brand">
+        <span class="brand-mark">SW</span>
+        <h1>Small Wins</h1>
+      </div>
+      <p class="auth-tagline">Your discipline, scored daily.<br><small>Check things off, grow your streak, level up.</small></p>
+      <p class="brand-credit">Developed by <strong>Your Trusted Guy</strong></p>
+      <form id="login-form" class="auth-form">
+        <label>Email<input type="email" id="login-email" required autocomplete="email"></label>
+        <label>Password<input type="password" id="login-password" required autocomplete="current-password"></label>
+        <p class="form-error" id="login-error" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary btn-block">Log in</button>
+      </form>
+      <p class="auth-switch" id="login-switch">No account yet? <a href="#" id="show-signup">Create one</a><br><a href="#" id="show-password-reset">Forgot your password?</a></p>
+
+      <form id="signup-form" class="auth-form hidden">
+        <label>Name<input type="text" id="signup-name" required autocomplete="name"></label>
+        <label>Email<input type="email" id="signup-email" required autocomplete="email"></label>
+        <label>Password<input type="password" id="signup-password" required autocomplete="new-password" minlength="12"></label>
+        <p class="form-error" id="signup-error" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+      </form>
+      <p class="auth-switch hidden" id="show-login-wrap">Already have an account? <a href="#" id="show-login">Log in</a></p>
+      <form id="password-reset-request-form" class="auth-form hidden">
+        <label>Email<input type="email" id="reset-request-email" required autocomplete="email"></label>
+        <p class="form-error" id="reset-request-error" aria-live="polite"></p>
+        <p class="form-success" id="reset-request-success"></p>
+        <button type="submit" class="btn btn-primary btn-block">Send reset link</button>
+      </form>
+      <form id="password-reset-form" class="auth-form hidden">
+        <input type="hidden" id="password-reset-token">
+        <label>New password<input type="password" id="reset-new-password" required minlength="12" autocomplete="new-password"></label>
+        <label>Confirm new password<input type="password" id="reset-confirm-password" required minlength="12" autocomplete="new-password"></label>
+        <p class="form-error" id="password-reset-error" aria-live="polite"></p>
+        <button type="submit" class="btn btn-primary btn-block">Reset password</button>
+      </form>
+      <p class="form-success hidden" id="password-reset-complete">Password updated. You can now log in.</p>
+      <p class="auth-switch hidden" id="reset-back-login"><a href="#" id="reset-back-login-link">Back to log in</a></p>
+      <p class="auth-data-note" id="auth-data-note"></p>
+      <p class="auth-switch"><a href="/privacy.html" target="_blank" rel="noopener">Privacy notice</a></p>
+    </div>
+  </section>
+
+  <!-- Main app -->
+  <div id="main-screen" class="main-screen hidden">
+    <header class="topbar">
+      <a class="app-brand" href="#/" aria-label="Small Wins home, developed by Your Trusted Guy">
+        <strong>Small Wins</strong>
+        <small>Developed by Your Trusted Guy</small>
+      </a>
+      <div class="xp-pill" id="xp-pill">
+        <span class="xp-level" id="xp-level">Lv 1</span>
+        <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar-fill"></div></div>
+      </div>
+      <a href="#/settings" class="icon-btn" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M4 12h1.5M18.5 12H20M12 4v1.5M12 18.5V20M6.3 6.3l1.1 1.1M16.6 16.6l1.1 1.1M6.3 17.7l1.1-1.1M16.6 7.4l1.1-1.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </a>
+      <button id="logout-btn" class="icon-btn hidden" title="Log out" aria-label="Log out">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </header>
+
+    <div id="connectivity-status" class="connectivity-status hidden" role="status" aria-live="polite">
+      <span id="connectivity-message"></span>
+      <button id="review-queue" type="button" class="queue-review-trigger hidden">Review queued changes</button>
+    </div>
+    <main id="content" class="content" tabindex="-1" aria-live="polite"></main>
+
+    <button id="fab" class="fab" type="button" aria-label="Quick add"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+    <nav class="bottom-nav" aria-label="Primary navigation">
+      <a href="#/" class="nav-item" data-route="/">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 4l8 7.5M6 10v9h5v-5h2v5h5v-9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Home</span>
+      </a>
+      <a href="#/tasks" class="nav-item" data-route="/tasks">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 11l2 2 4-4M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Tasks</span>
+      </a>
+      <a href="#/money" class="nav-item" data-route="/money">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.2-5 3 2.2 2.7 5 3 5 1.1 5 3-2.2 3-5 3-5-1.1-5-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Money</span>
+      </a>
+      <a href="#/body" class="nav-item" data-route="/body">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 6.5 4 9l3 3-3 3 2.5 2.5L9 15l3 3 3-3 2.5 2.5L20 15l-3-3 3-3-2.5-2.5L15 9l-3-3-3 3z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Body</span>
+      </a>
+      <a href="#/schedule" class="nav-item" data-route="/schedule">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Agenda</span>
+      </a>
+      <a href="#/stats" class="nav-item" data-route="/stats">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V10M12 19V5M19 19v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Stats</span>
+      </a>
+      <a href="#/goals" class="nav-item" data-route="/goals">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M7 12.5h10M7 8h10M7 17h6M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Goals</span>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<script src="/js/api.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/push.js"></script>
+<script src="/js/install.js"></script>
+<script src="/js/backup-crypto.js"></script>
+<script src="/js/ical-import.js"></script>
+<script src="/js/pages/dashboard.js"></script>
+<script src="/js/pages/tasks.js"></script>
+<script src="/js/pages/money.js"></script>
+<script src="/js/pages/body.js"></script>
+<script src="/js/pages/schedule.js"></script>
+<script src="/js/pages/stats.js"></script>
+<script src="/js/pages/goals.js"></script>
+<script src="/js/pages/settings.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

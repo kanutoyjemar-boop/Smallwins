@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Small Wins — Daily Progress Tracker",
+  "short_name": "Small Wins",
+  "description": "Celebrate your daily progress, one small win at a time. Works offline and syncs when you're back online.",
+  "start_url": "/#/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle", "health"],
+  "background_color": "#12141c",
+  "theme_color": "#12141c",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [{ "name": "Today's tasks", "url": "/#/tasks" }, { "name": "Log expense", "url": "/#/money" }]
+}

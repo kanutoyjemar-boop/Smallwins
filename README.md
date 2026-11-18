@@ -120,10 +120,29 @@ hosted account first, then import it from Settings in your local account.
    it creates a private local secret, prepares the database, starts Small Wins,
    and opens a standalone app window.
 4. Create your account with your name, email, and a strong password. Signup
-   does not require an invitation code.
+   does not require an invitation code unless you set `SIGNUP_INVITE_CODE`
+   (see [DEPLOY.md](DEPLOY.md)).
 5. To install it as a browser-managed app too, open `http://localhost:3000`
    in Edge, then use **… → Apps → Install this site as an app**. You can
    launch Small Wins from the Start menu afterward.
+
+## Back up a hosted database
+
+The Windows backup scripts only cover the local setup. For a hosted app, run
+`scripts/backup-hosted.sh` (needs the PostgreSQL client tools) on a schedule,
+for example daily from cron, with `DATABASE_URL` pointing at the hosted
+database. It writes a verified dump to `backups/`, removes dumps older than
+`KEEP_DAYS` (default 14), and refuses to leave a half-written file behind. Keep a
+copy somewhere other than the server, and also turn on your provider's own
+database backups. Dumps contain every user's data, so keep them private.
+`npm run verify:restore` can check that a dump restores.
+
+## Keep secrets out of shared files
+
+Never zip, email, or commit `.env`, `.env.local`, `backups/`, or `logs/`. They are
+listed in `.gitignore`, but a zip of the project folder still includes them. If
+a copy has been shared, set a new `JWT_SECRET` (this signs everyone out), change
+the database password, and regenerate the VAPID and SMTP keys.
 
 ## Install Small Wins on Android or iPhone
 
@@ -134,6 +153,9 @@ Open its URL on the phone while online, then:
 - **Android:** in Chrome, tap **⋮ → Install app** (or **Add to Home screen**).
 - **iPhone/iPad:** in Safari, tap **Share → Add to Home Screen → Add**.
 
+The app also shows its own **Install** banner on Android/Chrome/Edge, and an
+Add-to-Home-Screen tip on iPhone/iPad.
+
 Open the installed app and sign in while online. Visit the pages whose data you
 want available offline so this device can save a local copy. Previously saved
 data can be viewed without a connection; supported creates and updates are
@@ -143,6 +165,28 @@ account actions still need a live server. Offline data is stored in the
 browser's site storage; logging out clears that account's saved API responses.
 Uninstalling the app or clearing its browser/site data also removes local data
 and any queued changes that have not synced.
+
+**What works offline:** creating, editing, completing, and deleting tasks,
+workouts, meals, agenda items, expenses/income, and goals. Items you add offline
+appear right away with a "Waiting to sync" tag, and you can still edit or delete
+them before they sync. Totals on Money and Stats pages update after syncing.
+Bill payments, savings-fund actions, imports, and account actions still need a
+connection.
+
+**Knowing what you're looking at:** when a saved copy is shown instead of live data,
+the banner says so and how old the oldest saved page is. It also shows when you
+last synced with your account and how many changes are waiting. As soon as the
+device reconnects and the queue is empty, the page refreshes itself from the
+server. Full-account exports are never kept in the offline copy.
+
+**Automatic sync:** changes made offline are kept on the device and sent
+automatically when the connection returns: when the phone reports it is
+online, when you reopen or refocus the app, every 20 seconds while changes
+are waiting, and (Chrome/Android) via the browser's background sync. If the
+server refuses one change (for example a validation error), that change is held
+for review and everything else keeps syncing; the connectivity banner's
+**Review queued changes** shows why and lets you retry or remove it. Sign in once while online before going
+offline; app updates are fetched in the background and apply on next launch.
 
 When Small Wins is open, it uses only the local computer: local database,
 locally served charts, and cached app files. Disconnecting Wi-Fi/Ethernet
@@ -163,7 +207,8 @@ local database and all your entries. Run
 `Backup-SelfUp.cmd` to create a full PostgreSQL backup in `backups\`; copy it
 to a separate drive regularly. These database backups are unencrypted, so
 store them somewhere private. Settings → Export is also useful for moving
-data between hosted and local accounts. Back up or export your data before
+data between hosted and local accounts; it asks for a passphrase (12+ characters) and
+downloads an encrypted file, so keep the passphrase safe, because it cannot be recovered. Back up or export your data before
 removing Docker Desktop or deleting this project.
 
 ### Option A: Docker (recommended — no Postgres install needed)
@@ -187,7 +232,8 @@ Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
    ```
    Put the value in `.env` before starting the server. Account creation is open
    to anyone who can reach the app, so keep the local server private unless you
-   intend to offer public signup.
+   intend to offer public signup. To restrict a hosted copy, set
+   `SIGNUP_INVITE_CODE` and only people who know the code can sign up.
 4. Start the app:
    ```
    npm run migrate

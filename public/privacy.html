@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#12141C">
+  <title>Privacy notice — Small Wins</title>
+  <style>
+    body { max-width: 760px; margin: 3rem auto; padding: 0 1.25rem; font: 16px/1.65 system-ui, sans-serif; color: #242735; }
+    h1, h2 { line-height: 1.2; } li { margin: .4rem 0; }
+    a { color: #425bd5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Small Wins privacy notice</h1>
+    <p>Small Wins is a self-hosted personal tracker. This notice describes what this application stores; your hosting provider may have separate terms and retention policies.</p>
+
+    <h2>Information stored</h2>
+    <ul>
+      <li>Your name, email address, and a password hash (not your plain-text password).</li>
+      <li>A hashed, one-hour password-reset token while a reset request is active; the plain token is sent only in the reset email.</li>
+      <li>Entries you create, including tasks, routines, goals, reflections, schedule items, workouts, meals, expenses, budgets, recurring bills, savings funds, and optional sleep and recovery check-ins.</li>
+      <li>Notification settings and browser push-subscription details if you enable reminders.</li>
+      <li>Short-lived network-address and request-count records for authentication abuse prevention; expired records are cleaned up during traffic.</li>
+      <li>Your browser stores the login token and display preferences in local storage.</li>
+      <li>When a hosted app is used offline, previously loaded API responses and queued creates, updates, and deletes are stored in this browser's IndexedDB, scoped to your account. Logging out clears saved API responses; queued changes remain until they sync or the browser's site data is cleared. This browser storage is not encrypted by Small Wins, so on a shared phone or computer, log out when you finish and avoid installing the app on devices you do not control. The local Windows app sends changes directly to its local database.</li>
+    </ul>
+
+    <h2>How information is used</h2>
+    <p>The data powers your account, scores, summaries, exports, and any reminders you enable. Optional bill and low-balance push alerts may include bill names, bill amounts, or your available balance. Password-reset emails are sent only when the server operator configures SMTP; that mail service receives the destination email and reset link. The app does not log request bodies, query strings, or client IP addresses. It does not load advertising, analytics, fonts, or code from third-party websites. Optional push notifications use browser or operating-system push services and require internet access; they are disabled unless configured.</p>
+
+    <h2>Sharing, backups, and deletion</h2>
+    <p>Small Wins does not intentionally share your account data with other users. Your hosting provider operates the server and database and may retain backups under its own policies. For the local Windows setup, the database and backups remain on your computer; database backup files are not encrypted by Small Wins, so protect them. You can export your data or delete your account in Settings. Deletion removes the account and related rows from the live database, but may not immediately remove copies in provider backups or local backups.</p>
+
+    <h2>Security and contact</h2>
+    <p>Use a unique, strong password and only access Small Wins over HTTPS when deployed publicly. For questions or data requests, contact the person who operates this Small Wins server.</p>
+  </main>
+</body>
+</html>
