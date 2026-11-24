@@ -430,4 +430,5 @@ use the database configured by `DATABASE_URL` and start the app on port 4173.
 - **Planning and accessibility:** saved weekly rest days, completion-versus-plan review, task and agenda carry-over, small-start onboarding, visible offline retry details, and keyboard focus management for dialogs.
 - Reminder delivery records prevent concurrent duplicate sends and retry failed attempts after a short lease. The scheduler catches up for up to 10 minutes after a pause; a process crash after a push provider accepts a message but before Small Wins records success can still produce a rare duplicate, since those two systems cannot share one transaction.
 #   S m a l l - w i n s  
+ #   S m a l l w i n s  
  
