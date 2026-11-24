@@ -125,7 +125,9 @@ test('signup, login, and task access are isolated per account', { skip: !databas
     assert.equal(Number((await cashflow.json()).balance), 850);
     const backupResponse = await fetch(`${baseUrl}/api/export`, { headers: headers(owner.body.token) });
     const backup = await backupResponse.json();
-    assert.equal(backup.version, 10);
+    assert.equal(backup.version, 11);
+    assert.equal(backup.account.username, owner.body.user.username);
+    assert.equal(backup.account.avatar, null);
     const backupFund = backup.savings_funds.find((row) => row.export_key === fund.export_key);
     const backupEntry = backup.savings_fund_entries.find((row) => row.fund_key === fund.export_key);
     assert.ok(backupFund);
@@ -157,6 +159,11 @@ test('signup, login, and task access are isolated per account', { skip: !databas
         bill_due_enabled: true,
         bill_due_days_before: 3,
         bill_due_time: '09:15',
+        agenda_enabled: true,
+        agenda_time: '08:00',
+        agenda_advance_enabled: true,
+        agenda_advance_days_before: 2,
+        agenda_advance_time: '18:45',
         low_balance_enabled: true,
         low_balance_threshold: 250,
         low_balance_time: '20:30',
@@ -166,6 +173,11 @@ test('signup, login, and task access are isolated per account', { skip: !databas
     const savedAlertSettings = (await alertSettings.json()).settings;
     assert.equal(savedAlertSettings.bill_due_enabled, true);
     assert.equal(savedAlertSettings.bill_due_days_before, 3);
+    assert.equal(savedAlertSettings.agenda_enabled, true);
+    assert.equal(savedAlertSettings.agenda_time, '08:00');
+    assert.equal(savedAlertSettings.agenda_advance_enabled, true);
+    assert.equal(savedAlertSettings.agenda_advance_days_before, 2);
+    assert.equal(savedAlertSettings.agenda_advance_time, '18:45');
     assert.equal(Number(savedAlertSettings.low_balance_threshold), 250);
     const invalidAlertSettings = await fetch(`${baseUrl}/api/notifications/settings`, {
       method: 'PUT',
@@ -173,6 +185,18 @@ test('signup, login, and task access are isolated per account', { skip: !databas
       body: JSON.stringify({ bill_due_days_before: 8 }),
     });
     assert.equal(invalidAlertSettings.status, 400);
+    const invalidAgendaTime = await fetch(`${baseUrl}/api/notifications/settings`, {
+      method: 'PUT',
+      headers: { ...headers(owner.body.token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agenda_time: '25:00' }),
+    });
+    assert.equal(invalidAgendaTime.status, 400);
+    const invalidAdvanceLeadTime = await fetch(`${baseUrl}/api/notifications/settings`, {
+      method: 'PUT',
+      headers: { ...headers(owner.body.token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agenda_advance_days_before: 8 }),
+    });
+    assert.equal(invalidAdvanceLeadTime.status, 400);
     const futureStrip = await fetch(`${baseUrl}/api/dashboard/strip?date=2027-01-01`, {
       headers: headers(owner.body.token),
     });

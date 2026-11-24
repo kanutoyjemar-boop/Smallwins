@@ -12,6 +12,18 @@ const isLocalServer = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window
 let cachedDataInUse = false;
 let cachedOldestSavedAt = null; // oldest saved copy shown since the last live response
 
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-password-toggle]');
+  if (!button) return;
+  const input = document.getElementById(button.getAttribute('aria-controls'));
+  if (!input) return;
+  const visible = input.type === 'password';
+  input.type = visible ? 'text' : 'password';
+  button.textContent = visible ? 'Hide' : 'Show';
+  button.setAttribute('aria-label', `${visible ? 'Hide' : 'Show'} password`);
+  button.setAttribute('aria-pressed', String(visible));
+});
+
 // "3 hours ago", "2 days ago" — plain wording for how old a saved copy is.
 function describeAge(timestamp) {
   if (!timestamp) return null;
@@ -110,6 +122,11 @@ window.addEventListener('online', async () => {
   } catch (error) {
     UI.toast(`Could not sync offline changes: ${error.message}`);
   }
+  try {
+    await Api.refreshLocalCopy();
+  } catch (error) {
+    UI.toast(`Could not sync the device copy: ${error.message}`);
+  }
   try { await refreshIfStale(result && result.synced); } catch { /* the next trigger will retry */ }
   updateConnectivityStatus();
 });
@@ -126,11 +143,19 @@ async function autoSync({ refreshStale = false } = {}) {
   try {
     if (await Api.queueCount() === 0) {
       // Nothing to send, but the page may still be showing an old saved copy.
-      if (refreshStale) await refreshIfStale(0);
+      if (refreshStale) {
+        try { await Api.refreshLocalCopy({ maxAgeMs: 300000 }); }
+        catch (error) { UI.toast(`Could not sync the device copy: ${error.message}`); }
+        await refreshIfStale(0);
+      }
       return;
     }
     if (await Api.queueBlocked()) return;
     const result = await Api.flushQueue();
+    if (refreshStale || (result && result.synced)) {
+      try { await Api.refreshLocalCopy({ maxAgeMs: result && result.synced ? 0 : 300000 }); }
+      catch (error) { UI.toast(`Could not sync the device copy: ${error.message}`); }
+    }
     await refreshIfStale(result && result.synced);
   } catch (error) {
     // Still offline or server unreachable: try again on the next trigger.
@@ -168,7 +193,15 @@ updateConnectivityStatus();
   if (!note) return;
   note.textContent = isLocalServer
     ? 'This is the local app: your entries are stored on this computer and do not sync with a hosted account or your phone.'
-    : 'This is the hosted app: your account is stored online, and a copy of recent pages is kept on this device for offline use. It does not sync with a local Windows app.';
+    : 'This is the hosted app: your account is stored online and a complete copy is kept on this device for offline use. It syncs with your account when connected and does not sync with a local Windows app.';
+})();
+
+// A shared link like /?ref=username is remembered so the new account credits the member who shared it.
+(function captureReferral() {
+  try {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref && /^[a-z0-9_]{3,24}$/i.test(ref)) localStorage.setItem('selfup_ref', ref.toLowerCase());
+  } catch (error) { /* storage unavailable */ }
 })();
 
 // The sign-up form only asks for an invite code when the server requires one.
@@ -252,7 +285,9 @@ document.getElementById('signup-form').addEventListener('submit', async (e) => {
   const errEl = document.getElementById('signup-error');
   errEl.textContent = '';
   try {
-    const { token, user } = await Api.post('/auth/signup', { name, email, password, inviteCode });
+    let ref;
+    try { ref = localStorage.getItem('selfup_ref') || undefined; } catch (error) { ref = undefined; }
+    const { token, user } = await Api.post('/auth/signup', { name, email, password, inviteCode, ref });
     Api.setSession(token, user);
     enterApp();
   } catch (err) {
@@ -299,8 +334,8 @@ document.getElementById('password-reset-form').addEventListener('submit', async 
   }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => {
-  Api.clearSession();
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await Api.clearSession();
   mainScreen.classList.add('hidden');
   authScreen.classList.remove('hidden');
 });
@@ -324,7 +359,18 @@ function enterApp() {
   requestPersistentStorage();
   authScreen.classList.add('hidden');
   mainScreen.classList.remove('hidden');
-  Api.flushQueue().catch((error) => UI.toast(`Could not sync offline changes: ${error.message}`));
+  renderProfileAvatar();
+  const user = Api.getUser();
+  if (user && !Object.hasOwn(user, 'avatar')) {
+    Api.get('/auth/me').then((profile) => {
+      Api.setSession(Api.getToken(), { ...Api.getUser(), ...profile });
+      renderProfileAvatar(profile);
+    }).catch((error) => console.warn('Could not refresh the account profile:', error));
+  }
+  Api.flushQueue()
+    .catch((error) => UI.toast(`Could not sync offline changes: ${error.message}`))
+    .then(() => Api.refreshLocalCopy())
+    .catch((error) => UI.toast(`Could not sync the device copy: ${error.message}`));
   updateConnectivityStatus();
   refreshXp();
   if (!window.location.hash || window.location.hash === '#/login') {
@@ -333,6 +379,24 @@ function enterApp() {
     renderRoute();
   }
 }
+
+function renderProfileAvatar(user = Api.getUser()) {
+  const image = document.getElementById('profile-avatar-image');
+  const initials = document.getElementById('profile-avatar-initials');
+  if (!image || !initials) return;
+  const avatar = user && typeof user.avatar === 'string' ? user.avatar : '';
+  initials.textContent = (user && (user.name || user.email) || '?').trim().slice(0, 1).toUpperCase();
+  image.classList.toggle('hidden', !avatar);
+  initials.classList.toggle('hidden', Boolean(avatar));
+  if (avatar) {
+    image.onerror = () => {
+      image.classList.add('hidden');
+      initials.classList.remove('hidden');
+    };
+    image.src = avatar;
+  }
+}
+window.renderProfileAvatar = renderProfileAvatar;
 
 // ---------------- XP pill ----------------
 async function refreshXp() {
@@ -410,5 +474,9 @@ window.addEventListener('hashchange', renderRoute);
     enterApp();
   } else {
     showAuth();
+    // Someone arriving from a shared link goes straight to sign-up.
+    if (new URLSearchParams(window.location.search).get('ref')) {
+      document.getElementById('show-signup').click();
+    }
   }
 })();

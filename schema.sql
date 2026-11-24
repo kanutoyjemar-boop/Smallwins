@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   username      TEXT NOT NULL UNIQUE,
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  avatar_data   TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -210,6 +211,12 @@ CREATE TABLE IF NOT EXISTS notification_settings (
   evening_time        TEXT NOT NULL DEFAULT '18:30',
   streak_enabled      BOOLEAN NOT NULL DEFAULT true,
   streak_time         TEXT NOT NULL DEFAULT '21:00',
+  agenda_enabled      BOOLEAN NOT NULL DEFAULT false,
+  agenda_time         TEXT NOT NULL DEFAULT '08:00',
+  agenda_advance_enabled BOOLEAN NOT NULL DEFAULT false,
+  agenda_advance_days_before SMALLINT NOT NULL DEFAULT 1
+    CHECK (agenda_advance_days_before BETWEEN 1 AND 7),
+  agenda_advance_time TEXT NOT NULL DEFAULT '18:00',
   bill_due_enabled    BOOLEAN NOT NULL DEFAULT false,
   bill_due_days_before SMALLINT NOT NULL DEFAULT 1 CHECK (bill_due_days_before BETWEEN 0 AND 7),
   bill_due_time       TEXT NOT NULL DEFAULT '08:00',

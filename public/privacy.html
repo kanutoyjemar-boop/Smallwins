@@ -19,12 +19,15 @@
     <h2>Information stored</h2>
     <ul>
       <li>Your name, email address, and a password hash (not your plain-text password).</li>
+      <li>An optional profile picture, resized to a small JPEG and stored with your account. It appears in your signed-in app and account exports, and is included in progress cards only when you choose to share or save one.</li>
       <li>A hashed, one-hour password-reset token while a reset request is active; the plain token is sent only in the reset email.</li>
       <li>Entries you create, including tasks, routines, goals, reflections, schedule items, workouts, meals, expenses, budgets, recurring bills, savings funds, and optional sleep and recovery check-ins.</li>
-      <li>Notification settings and browser push-subscription details if you enable reminders.</li>
+      <li>
+        Notification settings and browser push-subscription details if you enable reminders. Optional agenda reminders include the titles and times of pending events scheduled for that day or a selected number of days in advance.
+      </li>
       <li>Short-lived network-address and request-count records for authentication abuse prevention; expired records are cleaned up during traffic.</li>
-      <li>Your browser stores the login token and display preferences in local storage.</li>
-      <li>When a hosted app is used offline, previously loaded API responses and queued creates, updates, and deletes are stored in this browser's IndexedDB, scoped to your account. Logging out clears saved API responses; queued changes remain until they sync or the browser's site data is cleared. This browser storage is not encrypted by Small Wins, so on a shared phone or computer, log out when you finish and avoid installing the app on devices you do not control. The local Windows app sends changes directly to its local database.</li>
+      <li>Your browser stores the login token, profile details (including an optional profile picture), and display preferences in local storage.</li>
+      <li>For offline use, a hosted app stores a complete account-data copy and previously loaded API responses in this browser's IndexedDB, scoped to your account. The copy syncs from the account when online and is not encrypted by Small Wins. Logging out clears the account copy and saved API responses; queued changes remain until they sync or the browser's site data is cleared. Uninstalling the app may not clear browser site data, so clear it in browser settings if needed. On a shared or lost device, protect the device and log out when finished. The local Windows app sends changes directly to its local database.</li>
     </ul>
 
     <h2>How information is used</h2>

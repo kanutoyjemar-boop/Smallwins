@@ -32,7 +32,7 @@
       <p class="brand-credit">Developed by <strong>Your Trusted Guy</strong></p>
       <form id="login-form" class="auth-form">
         <label>Email<input type="email" id="login-email" required autocomplete="email"></label>
-        <label>Password<input type="password" id="login-password" required autocomplete="current-password"></label>
+        <label>Password<div class="password-input-wrap"><input type="password" id="login-password" required autocomplete="current-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="login-password" aria-label="Show password" aria-pressed="false">Show</button></div></label>
         <p class="form-error" id="login-error" aria-live="polite"></p>
         <button type="submit" class="btn btn-primary btn-block">Log in</button>
       </form>
@@ -41,7 +41,7 @@
       <form id="signup-form" class="auth-form hidden">
         <label>Name<input type="text" id="signup-name" required autocomplete="name"></label>
         <label>Email<input type="email" id="signup-email" required autocomplete="email"></label>
-        <label>Password<input type="password" id="signup-password" required autocomplete="new-password" minlength="12"></label>
+        <label>Password<div class="password-input-wrap"><input type="password" id="signup-password" required autocomplete="new-password" minlength="12"><button type="button" class="password-toggle" data-password-toggle aria-controls="signup-password" aria-label="Show password" aria-pressed="false">Show</button></div></label>
         <p class="form-error" id="signup-error" aria-live="polite"></p>
         <button type="submit" class="btn btn-primary btn-block">Create account</button>
       </form>
@@ -54,8 +54,8 @@
       </form>
       <form id="password-reset-form" class="auth-form hidden">
         <input type="hidden" id="password-reset-token">
-        <label>New password<input type="password" id="reset-new-password" required minlength="12" autocomplete="new-password"></label>
-        <label>Confirm new password<input type="password" id="reset-confirm-password" required minlength="12" autocomplete="new-password"></label>
+        <label>New password<div class="password-input-wrap"><input type="password" id="reset-new-password" required minlength="12" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="reset-new-password" aria-label="Show password" aria-pressed="false">Show</button></div></label>
+        <label>Confirm new password<div class="password-input-wrap"><input type="password" id="reset-confirm-password" required minlength="12" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="reset-confirm-password" aria-label="Show password" aria-pressed="false">Show</button></div></label>
         <p class="form-error" id="password-reset-error" aria-live="polite"></p>
         <button type="submit" class="btn btn-primary btn-block">Reset password</button>
       </form>
@@ -77,6 +77,10 @@
         <span class="xp-level" id="xp-level">Lv 1</span>
         <div class="xp-bar-track"><div class="xp-bar-fill" id="xp-bar-fill"></div></div>
       </div>
+      <a href="#/settings" id="profile-avatar-link" class="profile-avatar" title="Profile settings" aria-label="Profile settings">
+        <img id="profile-avatar-image" class="hidden" alt="Profile picture">
+        <span id="profile-avatar-initials" aria-hidden="true">?</span>
+      </a>
       <a href="#/settings" class="icon-btn" title="Settings" aria-label="Settings">
         <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M4 12h1.5M18.5 12H20M12 4v1.5M12 18.5V20M6.3 6.3l1.1 1.1M16.6 16.6l1.1 1.1M6.3 17.7l1.1-1.1M16.6 7.4l1.1-1.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
       </a>

@@ -3,6 +3,7 @@ version: "3.8"
 # Local dev environment for SelfUp.
 #
 # Option A — database plus local app (recommended for offline personal use):
+#   Set JWT_SECRET in .env to a random value of at least 32 characters first.
 #   docker compose --profile full up -d --build
 #   (open http://localhost:3000; data persists in the selfup-db-data volume)
 #
@@ -44,7 +45,10 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/selfup
       # The image runs with NODE_ENV=production; this local database has no TLS.
       DATABASE_SSL_MODE: disable
-      JWT_SECRET: ${JWT_SECRET:-dev-only-change-this-jwt-secret-before-sharing}
+      JWT_SECRET: ${JWT_SECRET:?Set a strong random JWT_SECRET in .env before starting the full profile}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:you@example.com}
       PORT: 3000
     ports:
       - "127.0.0.1:3000:3000"

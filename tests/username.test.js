@@ -14,7 +14,7 @@ test('account usernames are readable, editable, normalized, and unique', async (
   let usernameTaken = false;
   pool.query = async (sql, params) => {
     if (sql.includes('SELECT token_version')) return { rows: [{ token_version: 0 }] };
-    if (sql.startsWith('SELECT id, name, username, email FROM users')) {
+    if (sql.startsWith('SELECT id, name, username, email, avatar_data AS avatar FROM users')) {
       return { rows: [{ id: 7, name: 'Alex Rivera', username: 'alex_rivera', email: 'alex@example.test' }] };
     }
     if (sql.startsWith('SELECT id FROM users WHERE username')) {

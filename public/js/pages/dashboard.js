@@ -14,19 +14,29 @@ const PageDashboard = (() => {
     const date = AppState.date || DateUtil.today();
     const version = ++renderVersion;
     const controlsVersion = ++dateControlsVersion;
-    const [data, strip, profile] = await Promise.all([
+    const [data, strip, profile, upcomingEvents] = await Promise.all([
       Api.get(`/dashboard?date=${date}`),
       Api.get(`/dashboard/strip?date=${date}`).catch(() => null),
       Api.get('/auth/me').catch(() => Api.getUser() || {}),
+      Api.get(`/schedule/upcoming?from=${DateUtil.today()}`),
     ]);
     if (version !== renderVersion || controlsVersion !== dateControlsVersion) return;
+    data.shareExtras = {
+      past: (strip && Array.isArray(strip.past)) ? strip.past : [],
+      link: buildShareLink(profile && profile.username),
+      avatar: profile && profile.avatar,
+    };
+    data.upcomingEvents = upcomingEvents;
     const controls = el.querySelector('.dashboard-date-controls');
     const content = el.querySelector('.dashboard-date-content');
     renderDateControls(controls, strip, date, el);
     content.innerHTML = template(data, date, strip, profile);
     content.classList.remove('date-content-enter');
     requestAnimationFrame(() => content.classList.add('date-content-enter'));
-    wire(content, el, data, date);
+    const shareName = profile && profile.username
+      ? `@${profile.username}`
+      : (((Api.getUser() || {}).name || '').trim() || 'Small Wins member');
+    wire(content, el, data, date, shareName);
     refreshXp();
   }
 
@@ -103,6 +113,7 @@ const PageDashboard = (() => {
         </button>
         ${dailyBriefModal(pendingTasks, pendingAgenda)}
       ` : ''}
+      ${upcomingEventsHtml(data.upcomingEvents, DateUtil.today())}
 
       ${data.motivation ? `
         <div class="panel motivation-banner">
@@ -138,31 +149,26 @@ const PageDashboard = (() => {
 
       ${localStorage.getItem('selfup_sharing_enabled') !== 'false' ? `<div class="panel share-panel">
         <div class="panel-title"><h3>Your progress, beautifully told</h3><span class="share-private-note">You choose what to share</span></div>
-        <p class="rating-sub share-intro">A ready-to-post recap of what you completed. Your account name and selected day identify the card; task names, email, budget, and private focus stay private.</p>
-        <div class="achievement-card" id="achievement-card">
-          <div class="achievement-card-top"><div class="achievement-brand"><span class="achievement-mark">SW</span><span>SMALL WINS</span></div><span class="achievement-card-kicker">${pct == null ? 'YOUR NEXT WIN STARTS HERE' : 'DAILY PROGRESS'}</span></div>
-          <div class="achievement-score ${pct == null ? 'is-empty' : ''}">${pct == null ? 'Start small' : pct}<small>${pct == null ? '' : '%'}</small></div>
-          <div class="achievement-rating" style="color:${color}">${pct == null ? 'A fresh start is still progress.' : escapeHtml(s.rating)}</div>
-          <div class="achievement-date">${escapeHtml(DateUtil.label(date))}</div>
-          <div class="achievement-identity">Completed by ${escapeHtml(shareName)}</div>
-          <div class="achievement-card-rule"></div>
-          <div class="achievement-metrics" style="--achievement-columns:${Math.max(1, shareStats.length)}">${shareStats.length ? shareStats.map((item) => `
-            <div class="achievement-metric"><span>${item.label}</span><strong>${item.done}<small>/${item.total}</small></strong></div>
-          `).join('') : '<div class="achievement-no-metrics">Make a plan. Show up. Count the small wins.</div>'}</div>
-          <p class="achievement-invitation">Want to make progress too? Start with Small Wins.</p>
-          <div class="achievement-card-footer"><span>${pct == null ? 'Your journey starts with one small win.' : 'Progress, not perfection.'}</span><span>#SmallWins</span></div>
-          <div class="achievement-card-credit">Developed by Your Trusted Guy</div>
+        <p class="rating-sub share-intro">A ready-to-post recap, sized for Stories or feed posts. It includes your username and profile picture, score, completion counts, streak, and last-7-day bars. Task names, email, budget, and private focus never do.</p>
+        <div class="share-format" role="group" aria-label="Card size">
+          <button type="button" class="btn btn-sm ${getCardFormat() === 'story' ? 'btn-primary' : 'btn-ghost'}" data-card-format="story">Story 9:16</button>
+          <button type="button" class="btn btn-sm ${getCardFormat() === 'feed' ? 'btn-primary' : 'btn-ghost'}" data-card-format="feed">Post 4:5</button>
         </div>
+        <div class="share-preview" id="share-preview" aria-label="Preview of your progress card"></div>
         <p class="share-caption-label">CAPTION PREVIEW</p>
-        <p class="share-caption" id="share-caption">${escapeHtml(buildShareMessage(data, date, shareName))}</p>
+        <p class="share-caption" id="share-caption">${escapeHtml(buildShareMessage(data, date, shareName, data.shareExtras))}</p>
+        <label class="share-link-label" for="share-public-url">Link shown on your card</label>
+        <input class="share-link-input" id="share-public-url" type="url" inputmode="url" placeholder="https://your-app.example.com" value="${escapeHtml(shareLinkBase())}" />
+        <p class="share-referral" id="share-referral" hidden></p>
         <div class="share-actions">
           <button class="btn btn-primary btn-sm" id="share-achievement" type="button">Share card…</button>
           <button class="btn btn-ghost btn-sm" id="copy-share-caption" type="button">Copy caption</button>
           <button class="btn btn-ghost btn-sm" data-share="facebook" type="button">Facebook</button>
           <button class="btn btn-ghost btn-sm" data-share="instagram" type="button">Instagram</button>
           <button class="btn btn-ghost btn-sm" id="download-achievement" type="button">Save image</button>
+          <button class="btn btn-ghost btn-sm" id="download-achievement-pdf" type="button">Save as PDF</button>
         </div>
-        <p class="share-platform-note">On mobile, “Share card” opens your device’s share sheet so you can choose Messenger, Facebook, or Instagram. Instagram and Facebook may require you to add the saved image in their app.</p>
+        <p class="share-platform-note">Your username and profile picture appear on the card. On mobile, “Share card” opens your device’s share sheet. For Stories, save the image, add it in Instagram or Facebook, and attach a link sticker with your caption link. “Save as PDF” opens the print dialog, where you can choose Save as PDF.</p>
       </div>` : ''}
 
       <div class="section-label">${DateUtil.label(date)} at a glance</div>
@@ -250,6 +256,36 @@ const PageDashboard = (() => {
       <p class="rating-sub" style="margin:10px 0 0">${tip}</p></div>`;
   }
 
+  function upcomingEventsHtml(events, today) {
+    const items = Array.isArray(events) ? events : [];
+    return `
+      <section class="panel upcoming-agenda" aria-labelledby="upcoming-agenda-title">
+        <div class="panel-title">
+          <div>
+            <h3 id="upcoming-agenda-title">Upcoming agenda</h3>
+            <p class="meta">${items.length ? 'Closest events first. Select an event to open its date.' : 'Add an agenda item for a future day so it shows up here.'}</p>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="#/schedule" aria-label="Plan an event">Plan</a>
+        </div>
+        ${items.length ? `
+          <div class="upcoming-agenda-list" aria-label="${items.length} upcoming ${items.length === 1 ? 'event' : 'events'}">
+            ${items.map((item, index) => {
+              const date = String(item.item_date).slice(0, 10);
+              const dayLabel = date === today ? 'Today' : date === DateUtil.addDays(today, 1) ? 'Tomorrow' : DateUtil.label(date);
+              const timeLabel = item.start_time ? formatBriefTime(item.start_time) : 'Any time';
+              return `<a class="upcoming-event ${index === 0 ? 'upcoming-event-next' : ''}" href="#/schedule" data-upcoming-date="${escapeHtml(date)}">
+                <span class="upcoming-event-date">${index === 0 ? '<strong>NEXT</strong>' : ''}<span>${escapeHtml(dayLabel)}</span><small>${escapeHtml(timeLabel)}</small></span>
+                <span class="upcoming-event-detail"><strong>${escapeHtml(item.title)}</strong>${item.location ? `<small>${escapeHtml(item.location)}</small>` : ''}</span>
+                <span class="upcoming-event-arrow" aria-hidden="true">›</span>
+              </a>`;
+            }).join('')}
+          </div>
+          <p class="upcoming-agenda-count">${items.length} upcoming ${items.length === 1 ? 'event' : 'events'}</p>
+        ` : `<a class="upcoming-agenda-empty" href="#/schedule">Nothing scheduled yet <span aria-hidden="true">›</span></a>`}
+      </section>
+    `;
+  }
+
   function pushNudgeHtml() {
     if (AppState.date !== DateUtil.today()) return '';
     if (sessionStorage.getItem('selfup_push_nudge_dismissed')) return '';
@@ -293,9 +329,14 @@ const PageDashboard = (() => {
     </details>`;
   }
 
-  function wire(el, root, data, date) {
+  function wire(el, root, data, date, shareName) {
     const userId = (Api.getUser() || {}).id;
     const onboardingKey = `selfup_onboarded_${userId}`;
+    el.querySelectorAll('[data-upcoming-date]').forEach((eventLink) => {
+      eventLink.addEventListener('click', () => {
+        AppState.date = eventLink.dataset.upcomingDate;
+      });
+    });
     el.querySelectorAll('[data-starter]').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
       try {
@@ -416,28 +457,83 @@ const PageDashboard = (() => {
       dailyBrief.addEventListener('click', (event) => { if (event.target === dailyBrief) closeBrief(); });
       if (!localStorage.getItem(`selfup_daily_brief_${AppState.date}`)) setTimeout(showBrief, 450);
     }
+    const preview = el.querySelector('#share-preview');
+    let previewRender = 0;
+    const renderPreview = async () => {
+      if (!preview) return;
+      const currentRender = ++previewRender;
+      try {
+        const canvas = await drawAchievementCard(data, date, shareName, data.shareExtras);
+        if (currentRender !== previewRender || !preview.isConnected) return;
+        canvas.className = 'share-preview-canvas';
+        preview.replaceChildren(canvas);
+      } catch (error) {
+        console.error('Could not render share card preview:', error);
+        if (currentRender === previewRender) preview.textContent = 'Preview unavailable on this device. You can still save the image.';
+      }
+    };
+    renderPreview();
+    el.querySelectorAll('[data-card-format]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        try { localStorage.setItem('selfup_card_format', btn.dataset.cardFormat); } catch (error) { /* ignore */ }
+        el.querySelectorAll('[data-card-format]').forEach((other) => {
+          other.classList.toggle('btn-primary', other === btn);
+          other.classList.toggle('btn-ghost', other !== btn);
+        });
+        renderPreview();
+      });
+    });
+    const urlInput = el.querySelector('#share-public-url');
+    if (urlInput) {
+      urlInput.addEventListener('change', () => {
+        const value = urlInput.value.trim();
+        try {
+          if (/^https?:\/\/[^\s]+$/i.test(value)) localStorage.setItem('selfup_public_url', value.replace(/\/+$/, ''));
+          else localStorage.removeItem('selfup_public_url');
+        } catch (error) { /* ignore */ }
+        data.shareExtras.link = buildShareLink(shareName);
+        const caption = el.querySelector('#share-caption');
+        if (caption) caption.textContent = buildShareMessage(data, date, shareName, data.shareExtras);
+        renderPreview();
+      });
+    }
+    const referralNote = el.querySelector('#share-referral');
+    if (referralNote) {
+      Api.get('/auth/referrals').then((result) => {
+        if (!result || !result.count) return;
+        referralNote.textContent = `${result.count} ${result.count === 1 ? 'person has' : 'people have'} joined from your link.`;
+        referralNote.hidden = false;
+      }).catch(() => {});
+    }
     const shareBtn = el.querySelector('#share-achievement');
     if (shareBtn) {
       shareBtn.addEventListener('click', async () => {
-        await shareAchievement(buildShareMessage(data, date, shareName), 'native', data, date, shareName);
+        await shareAchievement(buildShareMessage(data, date, shareName, data.shareExtras), 'native', data, date, shareName);
       });
     }
 
     el.querySelectorAll('[data-share]').forEach((btn) => {
       btn.addEventListener('click', async () => {
-        await shareAchievement(buildShareMessage(data, date, shareName), btn.dataset.share, data, date, shareName);
+        await shareAchievement(buildShareMessage(data, date, shareName, data.shareExtras), btn.dataset.share, data, date, shareName);
       });
     });
 
     const downloadBtn = el.querySelector('#download-achievement');
     if (downloadBtn) {
-      downloadBtn.addEventListener('click', () => downloadAchievementCard(data, date, shareName));
+      downloadBtn.addEventListener('click', () => downloadAchievementCard(data, date, shareName)
+        .catch((error) => UI.alert(error.message || 'Could not save the image.')));
+    }
+
+    const pdfBtn = el.querySelector('#download-achievement-pdf');
+    if (pdfBtn) {
+      pdfBtn.addEventListener('click', () => printAchievementCard(data, date, shareName)
+        .catch((error) => UI.alert(error.message || 'Could not prepare the PDF.')));
     }
 
     const copyCaptionBtn = el.querySelector('#copy-share-caption');
     if (copyCaptionBtn) {
       copyCaptionBtn.addEventListener('click', async () => {
-        await copyShareCaption(buildShareMessage(data, date, shareName));
+        await copyShareCaption(buildShareMessage(data, date, shareName, data.shareExtras));
       });
     }
 
@@ -493,25 +589,91 @@ const PageDashboard = (() => {
     return metrics.filter((metric) => metric.done > 0);
   }
 
-  function buildAchievementCardContent(data, date, username = 'Small Wins member') {
+  const THEMES = [
+    { name: 'midnight', bg: ['#121824', '#202d3b', '#17232d'], accent: '#4fd1ae', glow: 'rgba(79,209,174,0.10)', glow2: 'rgba(232,181,77,0.08)' },
+    { name: 'sunrise', bg: ['#2a1a2e', '#4a2740', '#2d1b2a'], accent: '#ffb86b', glow: 'rgba(255,184,107,0.12)', glow2: 'rgba(255,107,129,0.09)' },
+    { name: 'ocean', bg: ['#0e1f2e', '#12425a', '#0d2a3a'], accent: '#6ee7f9', glow: 'rgba(110,231,249,0.11)', glow2: 'rgba(79,209,174,0.08)' },
+    { name: 'forest', bg: ['#0f1f1a', '#1c3a2e', '#12281f'], accent: '#8be28b', glow: 'rgba(139,226,139,0.10)', glow2: 'rgba(232,215,120,0.08)' },
+    { name: 'violet', bg: ['#17162b', '#2c2559', '#1b1a38'], accent: '#b9a6ff', glow: 'rgba(185,166,255,0.12)', glow2: 'rgba(110,231,249,0.08)' },
+  ];
+
+  const HOOKS = {
+    strong: ['Another day, another win.', 'Quietly stacking wins.', 'This is what consistency looks like.', 'Small steps. Big days.'],
+    steady: ['Showed up. That counts.', 'Progress, one small win at a time.', 'Not perfect. Still moving.', 'Built a better day, bit by bit.'],
+    gentle: ['Some days are slow. I still showed up.', 'A small win is still a win.', 'Counting the little things today.'],
+    fresh: ['A fresh start is still progress.', 'Make a plan. Show up. Repeat.'],
+  };
+
+  function dateSeed(date) {
+    return String(date).split('').reduce((sum, ch) => (sum * 31 + ch.charCodeAt(0)) % 100003, 7);
+  }
+
+  function pickHook(score, date) {
+    const group = score == null ? HOOKS.fresh : score >= 85 ? HOOKS.strong : score >= 60 ? HOOKS.steady : HOOKS.gentle;
+    return group[dateSeed(date) % group.length];
+  }
+
+  function pickTheme(date) {
+    return THEMES[dateSeed(`t${date}`) % THEMES.length];
+  }
+
+  function shareLinkBase() {
+    let custom = '';
+    try { custom = (localStorage.getItem('selfup_public_url') || '').trim(); } catch (error) { custom = ''; }
+    const base = custom || (typeof window !== 'undefined' ? window.location.origin : '');
+    return base.replace(/\/+$/, '');
+  }
+
+  function buildShareLink(username) {
+    const base = shareLinkBase();
+    const handle = String(username || '').replace(/^@/, '').trim();
+    return /^[a-z0-9_]{3,24}$/.test(handle) ? `${base}/?ref=${handle}` : base;
+  }
+
+  function displayLink(link) {
+    return String(link).replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  }
+
+  function buildAchievementCardContent(data, date, username = 'Small Wins member', extras = {}) {
     const hasScore = data.summary.percentage != null;
+    const stats = buildShareStats(data);
+    const winsCount = stats.reduce((sum, metric) => sum + metric.done, 0);
+    const streak = date === DateUtil.today() && data.streak >= 2 ? data.streak : null;
+    const past = Array.isArray(extras.past) ? extras.past.slice(-7) : [];
+    const link = extras.link || '';
     return {
       brand: 'SMALL WINS',
       mark: 'SW',
       kicker: hasScore ? 'DAILY PROGRESS' : 'YOUR NEXT WIN STARTS HERE',
+      hook: pickHook(hasScore ? data.summary.percentage : null, date),
       score: hasScore ? String(data.summary.percentage) : null,
       rating: hasScore ? data.summary.rating : 'A fresh start is still progress.',
       date: DateUtil.label(date),
       username: username.trim() || 'Small Wins member',
-      stats: buildShareStats(data),
+      avatar: typeof extras.avatar === 'string' ? extras.avatar : '',
+      stats,
+      winsCount,
+      streak,
+      past: past.map((day) => ({ date: day.date, percentage: day.percentage == null ? null : Number(day.percentage) })),
+      theme: pickTheme(date),
       footer: hasScore ? 'Progress, not perfection.' : 'Your journey starts with one small win.',
       invitation: 'Want to make progress too? Start with Small Wins.',
+      cta: 'Build your own streak',
+      link,
+      linkLabel: link ? displayLink(link) : '',
       hashtag: '#SmallWins',
       developer: 'Developed by Your Trusted Guy',
     };
   }
 
-  function buildShareMessage(data, date, username = 'Small Wins member') {
+  const CAPTION_OPENERS = [
+    'A little progress adds up.',
+    'Tiny steps, real momentum.',
+    'Quietly getting better.',
+    'Showing up, one small win at a time.',
+  ];
+
+  function buildShareMessage(data, date, username = 'Small Wins member', extras = {}) {
     const title = date === DateUtil.today() ? 'today' : DateUtil.label(date);
     const score = data.summary.percentage;
     const stats = buildShareStats(data)
@@ -519,118 +681,285 @@ const PageDashboard = (() => {
       .join(' · ');
     const progress = score == null ? 'A fresh start is still progress.' : `My Small Wins score: ${score}% (${data.summary.rating}).`;
     const details = stats ? ` ${stats}.` : '';
-    return `A little progress adds up. ${title === 'today' ? 'Today' : title}: ${progress}${details} — ${username.trim() || 'Small Wins member'}. Want to make progress too? Start with Small Wins. #SmallWins #DailyProgress`;
+    const streak = date === DateUtil.today() && data.streak >= 2 ? ` ${data.streak}-day streak.` : '';
+    const opener = CAPTION_OPENERS[dateSeed(date) % CAPTION_OPENERS.length];
+    const link = extras.link ? ` Try it: ${extras.link}` : '';
+    return `${opener} ${title === 'today' ? 'Today' : title}: ${progress}${details}${streak} — ${username.trim() || 'Small Wins member'}. Want to make progress too? Start with Small Wins.${link} #SmallWins #DailyProgress`;
   }
 
-  function drawAchievementCard(data, date, username) {
+  const CARD_FORMATS = {
+    story: { width: 1080, height: 1920, label: 'Story (9:16)' },
+    feed: { width: 1080, height: 1350, label: 'Post (4:5)' },
+  };
+
+  function getCardFormat() {
+    try { return localStorage.getItem('selfup_card_format') === 'feed' ? 'feed' : 'story'; } catch (error) { return 'story'; }
+  }
+
+  function drawRing(ctx, cx, cy, radius, pct, accent) {
+    ctx.lineWidth = 26;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    if (pct > 0) {
+      ctx.strokeStyle = accent;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * Math.min(pct, 100)) / 100);
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  async function drawAchievementCard(data, date, username, extras = {}, format = getCardFormat()) {
+    const size = CARD_FORMATS[format] || CARD_FORMATS.story;
+    const W = size.width;
+    const H = size.height;
+    const story = format !== 'feed';
     const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1350;
+    canvas.width = W;
+    canvas.height = H;
     const ctx = canvas.getContext('2d');
-    const card = buildAchievementCardContent(data, date, username);
+    const card = buildAchievementCardContent(data, date, username, extras);
+    const avatar = await loadCardAvatar(card.avatar);
+    const t = card.theme;
     const score = card.score;
     const stats = card.stats;
-    const gradient = ctx.createLinearGradient(0, 0, 1080, 1350);
-    gradient.addColorStop(0, '#121824');
-    gradient.addColorStop(0.58, '#202d3b');
-    gradient.addColorStop(1, '#17232d');
+    const top = story ? 150 : 64; // Stories get extra top margin so IG/FB overlays don't cover the brand.
+
+    const gradient = ctx.createLinearGradient(0, 0, W, H);
+    gradient.addColorStop(0, t.bg[0]);
+    gradient.addColorStop(0.58, t.bg[1]);
+    gradient.addColorStop(1, t.bg[2]);
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 1080, 1350);
-    ctx.fillStyle = 'rgba(79, 209, 174, 0.08)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = t.glow;
     ctx.beginPath();
-    ctx.arc(900, 160, 260, 0, Math.PI * 2);
+    ctx.arc(900, top + 90, 300, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(232, 181, 77, 0.07)';
+    ctx.fillStyle = t.glow2;
     ctx.beginPath();
-    ctx.arc(100, 1240, 290, 0, Math.PI * 2);
+    ctx.arc(100, H - 160, 320, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#4fd1ae';
-    fillRoundedRect(ctx, 76, 80, 66, 66, 20);
-    ctx.fillStyle = '#13232b';
+    // Brand row
+    ctx.fillStyle = t.accent;
+    fillRoundedRect(ctx, 76, top, 66, 66, 20);
+    ctx.fillStyle = t.bg[0];
     ctx.font = '700 27px Arial';
-    ctx.fillText(card.mark, 88, 123);
+    ctx.fillText(card.mark, 88, top + 43);
     ctx.fillStyle = '#f5f7fa';
     ctx.font = '700 34px Arial';
-    ctx.fillText(card.brand, 166, 123);
-    ctx.fillStyle = '#a4b0ba';
-    ctx.font = '600 19px Arial';
-    ctx.letterSpacing = '4px';
-    ctx.fillText(card.kicker, 78, 222);
-    ctx.letterSpacing = '0px';
+    ctx.fillText(card.brand, 166, top + 43);
 
+    // Streak pill (top right), only when truthful
+    if (card.streak) {
+      const label = `${card.streak}-DAY STREAK`;
+      ctx.font = '700 22px Arial';
+      const w = ctx.measureText(label).width + 48;
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';
+      fillRoundedRect(ctx, W - 76 - w, top + 8, w, 50, 25);
+      ctx.fillStyle = t.accent;
+      ctx.fillText(label, W - 76 - w + 24, top + 41);
+    }
+
+    // Hook
+    let y = top + (story ? 150 : 140);
+    ctx.fillStyle = '#f5f7fa';
+    ctx.font = `700 ${story ? 58 : 54}px Arial`;
+    wrapText(ctx, card.hook, 80, y, 920, 66, 2);
+    y += card.hook.length > 26 ? (story ? 150 : 130) : (story ? 90 : 70);
+
+    // Ring + score
+    const ringR = story ? 190 : 118;
+    const cx = 80 + ringR + 14;
+    const cy = y + ringR + 20;
+    drawRing(ctx, cx, cy, ringR, score === null ? 0 : Number(score), t.accent);
+    ctx.textAlign = 'center';
     ctx.fillStyle = '#f5f7fa';
     if (score === null) {
-      ctx.font = '700 112px Arial';
-      ctx.fillText('START SMALL', 76, 526);
+      ctx.font = '700 58px Arial';
+      ctx.fillText('START', cx, cy - 4);
+      ctx.fillText('SMALL', cx, cy + 60);
     } else {
-      ctx.font = '700 228px Arial';
-      ctx.fillText(score, 70, 526);
-      const scoreWidth = ctx.measureText(score).width;
+      ctx.font = `700 ${story ? 120 : 84}px Arial`;
+      ctx.fillText(score, cx - 8, cy + (story ? 30 : 20));
       ctx.fillStyle = '#a4b0ba';
-      ctx.font = '700 64px Arial';
-      ctx.fillText('%', Math.min(780, 80 + scoreWidth), 514);
+      ctx.font = '700 34px Arial';
+      ctx.fillText('% score', cx, cy + (story ? 88 : 62));
     }
-    ctx.fillStyle = '#4fd1ae';
-    ctx.font = '700 39px Arial';
-    ctx.fillText(card.rating, 80, 612);
+    ctx.textAlign = 'left';
+
+    // Right of ring: rating + wins count
+    const rx = cx + ringR + 60;
+    ctx.fillStyle = t.accent;
+    ctx.font = '700 40px Arial';
+    ctx.fillText(card.rating, rx, cy - 40, W - rx - 60);
     ctx.fillStyle = '#a4b0ba';
-    ctx.font = '500 28px Arial';
-    ctx.fillText(card.date, 80, 668);
+    ctx.font = '500 26px Arial';
+    ctx.fillText(card.date, rx, cy + 8, W - rx - 60);
+    if (card.winsCount > 0) {
+      ctx.fillStyle = '#f5f7fa';
+      ctx.font = '700 54px Arial';
+      ctx.fillText(String(card.winsCount), rx, cy + 84);
+      const numW = ctx.measureText(String(card.winsCount)).width;
+      ctx.fillStyle = '#d8e1e6';
+      ctx.font = '600 26px Arial';
+      ctx.fillText(card.winsCount === 1 ? 'small win' : 'small wins', rx + numW + 14, cy + 84);
+    }
+    y = cy + ringR + (story ? 60 : 56);
+
+    const identitySize = 58;
+    const identityX = 80;
+    const identityY = y - identitySize + 12;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(identityX + identitySize / 2, identityY + identitySize / 2, identitySize / 2, 0, Math.PI * 2);
+    ctx.clip();
+    if (avatar) {
+      ctx.drawImage(avatar, identityX, identityY, identitySize, identitySize);
+    } else {
+      ctx.fillStyle = t.accent;
+      ctx.fillRect(identityX, identityY, identitySize, identitySize);
+      ctx.fillStyle = t.bg[0];
+      ctx.font = '700 30px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(card.username.replace(/^@/, '').slice(0, 1).toUpperCase() || '?', identityX + identitySize / 2, identityY + identitySize / 2);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+    }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(identityX + identitySize / 2, identityY + identitySize / 2, identitySize / 2, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.fillStyle = '#d8e1e6';
     ctx.font = '600 25px Arial';
-    ctx.fillText(`Completed by ${card.username}`, 80, 716, 920);
-
+    ctx.fillText(`Completed by ${card.username}`, identityX + identitySize + 18, y, 844);
+    y += 34;
     ctx.strokeStyle = 'rgba(245,247,250,0.16)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(80, 756);
-    ctx.lineTo(1000, 756);
+    ctx.moveTo(80, y);
+    ctx.lineTo(1000, y);
     ctx.stroke();
-    ctx.fillStyle = '#f5f7fa';
-    ctx.font = '700 20px Arial';
-    ctx.fillText('SMALL WINS, MADE VISIBLE', 80, 812);
+    y += story ? 56 : 30;
 
+    // Metrics
+    if (story) {
+      ctx.fillStyle = '#f5f7fa';
+      ctx.font = '700 20px Arial';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('SMALL WINS, MADE VISIBLE', 80, y);
+      ctx.letterSpacing = '0px';
+      y += 30;
+    }
     const gap = 18;
     const columns = stats.length === 1 ? 1 : 2;
     const cellWidth = (920 - gap * (columns - 1)) / columns;
-    const cellHeight = 126;
+    const cellHeight = story ? 112 : 92;
     stats.slice(0, 4).forEach((metric, index) => {
       const x = 80 + (index % columns) * (cellWidth + gap);
-      const y = 844 + Math.floor(index / columns) * (cellHeight + gap);
+      const cellY = y + Math.floor(index / columns) * (cellHeight + gap);
       ctx.fillStyle = 'rgba(255,255,255,0.07)';
-      fillRoundedRect(ctx, x, y, cellWidth, cellHeight, 20);
+      fillRoundedRect(ctx, x, cellY, cellWidth, cellHeight, 20);
       ctx.fillStyle = '#a4b0ba';
-      ctx.font = '600 21px Arial';
-      ctx.fillText(metric.label.toUpperCase(), x + 24, y + 40);
+      ctx.font = '600 20px Arial';
+      ctx.fillText(metric.label.toUpperCase(), x + 24, cellY + (story ? 38 : 33));
       ctx.fillStyle = '#f5f7fa';
-      ctx.font = '700 45px Arial';
-      ctx.fillText(`${metric.done}/${metric.total}`, x + 24, y + 94);
+      ctx.font = '700 42px Arial';
+      ctx.fillText(`${metric.done}/${metric.total}`, x + 24, cellY + (story ? 87 : 74));
     });
+    const metricRows = Math.max(1, Math.ceil(Math.min(stats.length, 4) / columns));
     if (!stats.length) {
       ctx.fillStyle = 'rgba(255,255,255,0.07)';
-      fillRoundedRect(ctx, 80, 844, 920, 160, 20);
+      fillRoundedRect(ctx, 80, y, 920, 140, 20);
       ctx.fillStyle = '#d8e1e6';
       ctx.font = '600 28px Arial';
-      ctx.fillText('Nothing logged for this day yet.', 108, 888);
+      ctx.fillText('Nothing logged for this day yet.', 108, y + 56);
       ctx.fillStyle = '#a4b0ba';
       ctx.font = '500 23px Arial';
-      ctx.fillText('Make a plan. Show up. Count the small wins.', 108, 934);
+      ctx.fillText('Make a plan. Show up. Count the small wins.', 108, y + 100);
+    }
+    y += (stats.length ? metricRows * (cellHeight + gap) : 158) + 14;
+
+    // Last 7 days consistency bars (real scores only)
+    const scoredPast = card.past.filter((day) => day.percentage != null).length;
+    if (card.past.length && scoredPast >= 2) {
+      ctx.fillStyle = '#f5f7fa';
+      ctx.font = '700 20px Arial';
+      ctx.letterSpacing = '3px';
+      ctx.fillText('LAST 7 DAYS', 80, y + 20);
+      ctx.letterSpacing = '0px';
+      const barArea = story ? 130 : 70;
+      const slot = 920 / 7;
+      card.past.forEach((day, index) => {
+        const bx = 80 + index * slot + 8;
+        const bw = slot - 16;
+        const base = y + 40 + barArea;
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        fillRoundedRect(ctx, bx, base - barArea, bw, barArea, 10);
+        if (day.percentage != null) {
+          const bh = Math.max(10, (barArea * day.percentage) / 100);
+          ctx.fillStyle = t.accent;
+          fillRoundedRect(ctx, bx, base - bh, bw, bh, 10);
+        }
+        const dow = new Date(`${day.date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 1);
+        ctx.fillStyle = '#81909a';
+        ctx.font = '600 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(dow, bx + bw / 2, base + 26);
+        ctx.textAlign = 'left';
+      });
+      y += 40 + barArea + 50;
     }
 
-    ctx.fillStyle = '#4fd1ae';
-    ctx.font = '600 24px Arial';
-    ctx.fillText(card.invitation, 80, 1160, 920);
+    // CTA block pinned to the bottom (above story safe zone)
+    const bottomPad = story ? 250 : 56;
+    const ctaH = story ? 150 : 124;
+    const ctaY = Math.max(y + 24, H - bottomPad - ctaH - 20);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    fillRoundedRect(ctx, 80, ctaY, 920, ctaH, 28);
+    ctx.fillStyle = t.accent;
+    ctx.font = '700 34px Arial';
+    ctx.fillText(card.cta, 112, ctaY + (story ? 56 : 50), 856);
     ctx.fillStyle = '#d8e1e6';
     ctx.font = '500 25px Arial';
-    ctx.fillText(card.footer, 80, 1208);
-    ctx.fillStyle = '#4fd1ae';
-    ctx.font = '700 21px Arial';
-    ctx.fillText(card.hashtag, 80, 1262);
+    ctx.fillText(card.linkLabel ? `Start at ${card.linkLabel}` : card.invitation, 112, ctaY + (story ? 102 : 92), 856);
     ctx.fillStyle = '#81909a';
     ctx.font = '500 20px Arial';
-    ctx.fillText(card.developer, 80, 1305);
+    ctx.fillText(`${card.hashtag}  ·  ${card.developer}`, 80, H - bottomPad + 10);
     return canvas;
+  }
+
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+    const words = String(text).split(' ');
+    let line = '';
+    let lines = 0;
+    words.forEach((word, index) => {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        ctx.fillText(line, x, y + lines * lineHeight);
+        lines += 1;
+        line = word;
+      } else {
+        line = test;
+      }
+      if (index === words.length - 1 && lines < maxLines) ctx.fillText(line, x, y + lines * lineHeight);
+    });
+  }
+
+  function loadCardAvatar(source) {
+    if (!source) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => resolve(null);
+      image.src = source;
+    });
   }
 
   function fillRoundedRect(ctx, x, y, width, height, radius) {
@@ -645,19 +974,45 @@ const PageDashboard = (() => {
     ctx.fill();
   }
 
-  function downloadAchievementCard(data, date, username) {
-    const canvas = drawAchievementCard(data, date, username);
+  async function downloadAchievementCard(data, date, username) {
+    const canvas = await drawAchievementCard(data, date, username, data.shareExtras);
     const link = document.createElement('a');
     link.download = `small-wins-${date}-progress.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   }
 
+  async function printAchievementCard(data, date, username) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) throw new Error('Allow pop-ups to print or save your progress card as a PDF.');
+    try {
+      const format = getCardFormat();
+      const canvas = await drawAchievementCard(data, date, username, data.shareExtras, format);
+      const image = canvas.toDataURL('image/png');
+      const pageHeight = format === 'feed' ? 135 : 192;
+      printWindow.document.open();
+      printWindow.document.write(`<!doctype html>
+        <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Small Wins progress — ${escapeHtml(date)}</title><style>
+          @page { margin: 0; size: 108mm ${pageHeight}mm; }
+          * { box-sizing: border-box; }
+          body { margin: 0; background: #10131b; color: #fff; font: 16px/1.5 Arial, sans-serif; }
+          main { width: 100vw; height: 100vh; display: grid; place-items: center; }
+          img { display: block; width: 100%; height: 100%; object-fit: contain; }
+        </style></head><body><main><img src="${image}" alt="Small Wins progress card for ${escapeHtml(username)}"></main>
+        <script>window.addEventListener('load', () => setTimeout(() => window.print(), 150));</script></body></html>`);
+      printWindow.document.close();
+    } catch (error) {
+      printWindow.close();
+      throw error;
+    }
+  }
+
   async function shareAchievement(message, platform, data, date, username) {
     let imageFile;
     try {
       imageFile = dataUrlToFile(
-        drawAchievementCard(data, date, username).toDataURL('image/png'),
+        (await drawAchievementCard(data, date, username, data.shareExtras)).toDataURL('image/png'),
         `small-wins-${date}-progress.png`
       );
     } catch (error) {
@@ -682,7 +1037,7 @@ const PageDashboard = (() => {
     }
 
     if (platform === 'facebook') {
-      downloadAchievementCard(data, date, username);
+      await downloadAchievementCard(data, date, username);
       copyShareCaption(message);
       const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
       const shareUrl = `${window.location.origin}${window.location.pathname}`;
@@ -699,7 +1054,7 @@ const PageDashboard = (() => {
       return;
     }
     if (platform === 'instagram') {
-      downloadAchievementCard(data, date, username);
+      await downloadAchievementCard(data, date, username);
       copyShareCaption(message);
       window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
       UI.alert('Image saved. Add it to your Instagram post, then paste the copied caption.');
@@ -728,7 +1083,7 @@ const PageDashboard = (() => {
     }
   }
 
-  return { render, buildShareMessage, buildShareStats, buildAchievementCardContent };
+  return { render, buildShareMessage, buildShareStats, buildAchievementCardContent, buildShareLink };
 })();
 
 if (typeof module !== 'undefined') module.exports = PageDashboard;

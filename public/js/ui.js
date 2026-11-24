@@ -58,7 +58,7 @@ const UI = (() => {
     });
   }
   const prompt = (title, value = '') => modal(`<h3>${escapeHtml(title)}</h3><input type="text" value="${escapeHtml(value)}"><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok>Save</button></div>`);
-  const passwordPrompt = (title, help) => modal(`<h3>${escapeHtml(title)}</h3>${help ? `<p class="meta">${escapeHtml(help)}</p>` : ''}<label>Passphrase<input type="password" autocomplete="new-password"></label><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok>Continue</button></div>`);
+  const passwordPrompt = (title, help) => modal(`<h3>${escapeHtml(title)}</h3>${help ? `<p class="meta">${escapeHtml(help)}</p>` : ''}<label>Passphrase<div class="password-input-wrap"><input type="password" id="password-prompt-input" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="password-prompt-input" aria-label="Show password" aria-pressed="false">Show</button></div></label><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok>Continue</button></div>`);
   const confirm = (msg) => modal(`<h3>${escapeHtml(msg)}</h3><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-danger" data-ok>Confirm</button></div>`);
   const alert = (msg) => toast(msg);
 

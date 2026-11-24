@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  createScheduler, dueWithinRecoveryWindow, getBillsDue, getCashflowBalance, localDateTime,
+  createScheduler, dueWithinRecoveryWindow, getAgendaForUser, getBillsDue,
+  getCashflowBalance, localDateTime,
 } = require('../utils/scheduler');
 const { buildCalendar } = require('../utils/ical');
 const mailer = require('../utils/mailer');
@@ -133,6 +134,157 @@ test('scheduler uses a cross-instance lock and persists one delivery per day', a
   assert.equal(sends, 1);
   assert.equal(deliveryStatus, 'sent');
   assert.equal(released, 2);
+});
+
+test('scheduler sends one local-time agenda reminder with pending events', async () => {
+  const now = localDateTime('UTC');
+  const settings = [{
+    user_id: 29,
+    timezone: 'UTC',
+    smart_enabled: false,
+    morning_enabled: false,
+    evening_enabled: false,
+    streak_enabled: false,
+    agenda_enabled: true,
+    agenda_time: now.time,
+  }];
+  const deliveries = new Map();
+  const sent = [];
+  const database = {
+    async connect() {
+      return {
+        async query() { return { rows: [{ locked: true }] }; },
+        release() {},
+      };
+    },
+    async query(sql, params = []) {
+      if (sql.includes('SELECT * FROM notification_settings')) return { rows: settings };
+      if (sql.includes('SELECT status, updated_at FROM notification_deliveries')) {
+        const status = deliveries.get(`${params[0]}:${params[1]}:${params[2]}`);
+        return { rows: status ? [{ status, updated_at: new Date() }] : [] };
+      }
+      if (sql.includes('INSERT INTO notification_deliveries')) {
+        const key = `${params[0]}:${params[1]}:${params[2]}`;
+        if (deliveries.has(key)) return { rows: [] };
+        deliveries.set(key, 'sending');
+        return { rows: [{ id: 1 }] };
+      }
+      if (sql.includes('UPDATE notification_deliveries')) {
+        deliveries.set('29:agenda:' + now.date, params[1]);
+        return { rows: [] };
+      }
+      return { rows: [] };
+    },
+  };
+  const scheduler = createScheduler({
+    database,
+    pushClient: {
+      isConfigured: () => true,
+      async sendToUser(userId, payload) {
+        sent.push({ userId, payload });
+        return { sent: 1 };
+      },
+    },
+    getAgendaForUser: async (_database, userId, date, time) => {
+      assert.equal(userId, 29);
+      assert.equal(date, now.date);
+      assert.equal(time, now.time);
+      return [
+        { title: 'Planning', start_time: '09:30:00' },
+        { title: 'Walk', start_time: null },
+      ];
+    },
+  });
+
+  await scheduler.tick();
+  await scheduler.tick();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].payload.title, "2 events on today's agenda");
+  assert.equal(sent[0].payload.body, '09:30 Planning · Walk');
+  assert.equal(sent[0].payload.url, '/#/schedule');
+  assert.equal(deliveries.get(`29:agenda:${now.date}`), 'sent');
+});
+
+test('scheduler sends the configured advance agenda reminder once with the target date', async () => {
+  const now = localDateTime('UTC');
+  const settings = [{
+    user_id: 31,
+    timezone: 'UTC',
+    smart_enabled: false,
+    morning_enabled: false,
+    evening_enabled: false,
+    streak_enabled: false,
+    agenda_advance_enabled: true,
+    agenda_advance_days_before: 2,
+    agenda_advance_time: now.time,
+  }];
+  const deliveries = new Map();
+  const sent = [];
+  const database = {
+    async connect() {
+      return {
+        async query() { return { rows: [{ locked: true }] }; },
+        release() {},
+      };
+    },
+    async query(sql, params = []) {
+      if (sql.includes('SELECT * FROM notification_settings')) return { rows: settings };
+      if (sql.includes('SELECT status, updated_at FROM notification_deliveries')) {
+        const status = deliveries.get(`${params[0]}:${params[1]}:${params[2]}`);
+        return { rows: status ? [{ status, updated_at: new Date() }] : [] };
+      }
+      if (sql.includes('INSERT INTO notification_deliveries')) {
+        const key = `${params[0]}:${params[1]}:${params[2]}`;
+        if (deliveries.has(key)) return { rows: [] };
+        deliveries.set(key, 'sending');
+        return { rows: [{ id: 1 }] };
+      }
+      if (sql.includes('UPDATE notification_deliveries')) {
+        deliveries.set(`31:agenda_advance:${now.date}`, params[1]);
+        return { rows: [] };
+      }
+      return { rows: [] };
+    },
+  };
+  const scheduler = createScheduler({
+    database,
+    pushClient: {
+      isConfigured: () => true,
+      async sendToUser(userId, payload) {
+        sent.push({ userId, payload });
+        return { sent: 1 };
+      },
+    },
+    getAgendaForUser: async (_database, userId, date, time) => {
+      assert.equal(userId, 31);
+      assert.equal(date, require('../utils/date').addDays(now.date, 2));
+      assert.equal(time, null);
+      return [{ title: 'Project review', start_time: '10:00:00' }];
+    },
+  });
+
+  await scheduler.tick();
+  await scheduler.tick();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].payload.title, 'Agenda in 2 days');
+  assert.equal(sent[0].payload.body, '10:00 Project review');
+  assert.equal(sent[0].payload.url, '/#/schedule');
+  assert.equal(deliveries.get(`31:agenda_advance:${now.date}`), 'sent');
+});
+
+test('agenda reminder lookup only returns pending events for the requested day', async () => {
+  const database = {
+    async query(sql, params) {
+      assert.match(sql, /status = 'pending'/);
+      assert.match(sql, /\$3::time IS NULL OR start_time IS NULL OR start_time >= \$3::time/);
+      assert.match(sql, /ORDER BY start_time NULLS LAST/);
+      assert.deepEqual(params, [29, '2026-04-02', '08:00']);
+      return { rows: [{ title: 'Planning', start_time: '09:30:00' }] };
+    },
+  };
+  assert.deepEqual(await getAgendaForUser(database, 29, '2026-04-02', '08:00'), [
+    { title: 'Planning', start_time: '09:30:00' },
+  ]);
 });
 
 test('scheduler exits without querying reminders when another instance holds the lock', async () => {

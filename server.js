@@ -60,6 +60,7 @@ function createApp({ database = require('./db').pool } = {}) {
   app.use('/api/templates', require('./routes/templates'));
   app.use('/api/reflections', require('./routes/reflections'));
   app.use('/api/notifications', require('./routes/notifications'));
+  app.use('/api/offline-copy', require('./routes/offline-copy'));
   app.use('/api/export', require('./routes/export'));
   app.use('/api/sample-data', require('./routes/sample-data'));
 

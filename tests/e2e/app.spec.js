@@ -20,6 +20,147 @@ test.afterAll(async () => {
   await pool.end();
 });
 
+test('password fields can be shown and hidden on authentication forms', async ({ page }) => {
+  await page.goto('/');
+  const loginPassword = page.locator('#login-password');
+  await expect(loginPassword).toHaveAttribute('type', 'password');
+  await page.getByRole('button', { name: 'Show password' }).first().click();
+  await expect(loginPassword).toHaveAttribute('type', 'text');
+  await expect(page.getByRole('button', { name: 'Hide password' }).first()).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Hide password' }).first().click();
+  await expect(loginPassword).toHaveAttribute('type', 'password');
+
+  await page.getByRole('link', { name: 'Create one' }).click();
+  const signupPassword = page.locator('#signup-password');
+  await page.getByRole('button', { name: 'Show password' }).last().click();
+  await expect(signupPassword).toHaveAttribute('type', 'text');
+});
+
+test('profile picture is saved and visible across every app tab', async ({ page }) => {
+  const suffix = crypto.randomUUID();
+  const email = `avatar-${suffix}@example.test`;
+  testEmails.add(email);
+  await setUniqueClientIp(page.context());
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Create one' }).click();
+  await page.locator('#signup-name').fill('Avatar test');
+  await page.locator('#signup-email').fill(email);
+  await page.locator('#signup-password').fill('avatar-test-password-long-enough');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#main-screen')).toBeVisible();
+  await page.goto('/#/settings');
+  const imageBuffer = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 2;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#e8b54d';
+    context.fillRect(0, 0, 2, 2);
+    return canvas.toDataURL('image/png').split(',')[1];
+  }), 'base64');
+  await page.locator('#profile-picture-file').setInputFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: imageBuffer,
+  });
+  await expect(page.getByRole('button', { name: 'Save picture' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Save picture' }).click();
+  const profileImage = page.locator('#profile-avatar-image');
+  await expect(profileImage).toBeVisible();
+  await expect(profileImage).toHaveAttribute('src', /^data:image\/jpeg;base64,/);
+  const backup = await page.evaluate(() => Api.get('/export'));
+  expect(backup.account.username).toMatch(/^avatar_test_[a-f0-9]+$/);
+  expect(backup.account.avatar).toMatch(/^data:image\/jpeg;base64,/);
+  const invalidAvatarError = await page.evaluate(async () => {
+    try {
+      await Api.patch('/auth/me', { avatar: 'data:image/svg+xml;base64,PHN2Zy8+' });
+      return '';
+    } catch (error) {
+      return error.message;
+    }
+  });
+  expect(invalidAvatarError).toBe('Profile picture must be a JPEG image no larger than 256 KB.');
+
+  await page.reload();
+  await expect(profileImage).toBeVisible();
+  await page.locator('.nav-item[href="#/"]').click();
+  await expect(page.locator('#share-preview canvas')).toBeVisible();
+  const pdfPopupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Save as PDF' }).click();
+  const pdfPage = await pdfPopupPromise;
+  await expect(pdfPage.locator('img')).toHaveAttribute('src', /^data:image\/png;base64,/);
+  await expect(pdfPage.locator('img')).toHaveAttribute('alt', /@avatar_test_/);
+  await pdfPage.close();
+  for (const route of ['#/', '#/tasks', '#/money', '#/body', '#/schedule', '#/stats', '#/goals']) {
+    await page.locator(`.nav-item[href="${route}"]`).click();
+    await expect(profileImage).toBeVisible();
+  }
+
+  await page.goto('/#/settings');
+  await page.getByRole('button', { name: 'Remove picture' }).click();
+  await expect(profileImage).toBeHidden();
+  await expect(page.locator('#profile-avatar-initials')).toBeVisible();
+});
+
+test('advance agenda reminders can be configured from Settings', async ({ page }) => {
+  const email = `agenda-reminder-${crypto.randomUUID()}@example.test`;
+  testEmails.add(email);
+  await setUniqueClientIp(page.context());
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Create one' }).click();
+  await page.locator('#signup-name').fill('Agenda reminder test');
+  await page.locator('#signup-email').fill(email);
+  await page.locator('#signup-password').fill('agenda-reminder-test-password-long-enough');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#main-screen')).toBeVisible();
+
+  await page.goto('/#/settings');
+  await page.locator('#agenda-advance-enabled').check();
+  await page.locator('#agenda-advance-days-before').selectOption('3');
+  await page.locator('#agenda-advance-time').fill('19:15');
+  await page.getByRole('button', { name: 'Save reminder settings' }).click();
+  await expect(page.locator('#settings-saved')).toHaveText('Saved.');
+
+  const { settings } = await page.evaluate(() => Api.get('/notifications/settings'));
+  expect(settings.agenda_advance_enabled).toBe(true);
+  expect(settings.agenda_advance_days_before).toBe(3);
+  expect(settings.agenda_advance_time).toBe('19:15');
+});
+
+test('dashboard prioritizes every upcoming event by its nearest date and time', async ({ page }) => {
+  const suffix = crypto.randomUUID();
+  const email = `upcoming-${suffix}@example.test`;
+  testEmails.add(email);
+  await setUniqueClientIp(page.context());
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Create one' }).click();
+  await page.locator('#signup-name').fill('Upcoming test');
+  await page.locator('#signup-email').fill(email);
+  await page.locator('#signup-password').fill('upcoming-test-password-long-enough');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#main-screen')).toBeVisible();
+
+  const { nearDate, farDate } = await page.evaluate(() => ({
+    nearDate: DateUtil.addDays(DateUtil.today(), 1),
+    farDate: DateUtil.addDays(DateUtil.today(), 12),
+  }));
+  await page.evaluate(async ({ nearDate, farDate }) => {
+    await Api.post('/schedule', { item_date: farDate, title: 'Later appointment', start_time: '10:00' });
+    await Api.post('/schedule', { item_date: nearDate, title: 'Sooner late appointment', start_time: '10:00' });
+    await Api.post('/schedule', { item_date: nearDate, title: 'Sooner appointment', start_time: '08:00' });
+  }, { nearDate, farDate });
+  await page.reload();
+  await page.locator('.nav-item[href="#/"]').click();
+  const upcomingItems = page.locator('.upcoming-event');
+  await expect(upcomingItems).toHaveCount(3);
+  await expect(upcomingItems.nth(0)).toContainText('Sooner appointment');
+  await expect(upcomingItems.nth(0)).toContainText('NEXT');
+  await expect(upcomingItems.nth(1)).toContainText('Sooner late appointment');
+  await expect(upcomingItems.nth(2)).toContainText('Later appointment');
+  await upcomingItems.nth(0).click();
+  await expect(page.locator('#schedule-date')).toHaveValue(nearDate);
+});
+
 test('new user can sign up, add a task, and keep it after reload', async ({ page }) => {
   const suffix = crypto.randomUUID();
   const email = `browser-${suffix}@example.test`;
@@ -258,6 +399,31 @@ test('installed app reopens offline from its saved copy and says how old that co
   await form.locator('input[type="text"]').fill(taskName);
   await form.getByRole('button', { name: 'Add' }).click();
   await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => new Promise((resolve, reject) => {
+    const open = indexedDB.open('selfup-offline');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const request = open.result.transaction('account', 'readonly').objectStore('account').get(String(Api.getUser().id));
+      request.onsuccess = () => {
+        open.result.close();
+        resolve((request.result && request.result.data.tasks || []).map((task) => task.title));
+      };
+      request.onerror = () => reject(request.error);
+    };
+  }))).toContain(taskName);
+  const cachedSections = [
+    { route: '/money', selector: '.money-hero' },
+    { route: '/body', selector: '.body-hero' },
+    { route: '/schedule', selector: '.schedule-week-controls' },
+    { route: '/stats', selector: '.score-hero' },
+    { route: '/goals', selector: '.weekly-review-panel' },
+    { route: '/', selector: '.dashboard-page' },
+  ];
+  for (const { route, selector } of cachedSections) {
+    await page.locator(`a[data-route="${route}"]`).click();
+    await expect(page.locator(`#content ${selector}`)).toBeVisible();
+  }
+  await page.getByRole('link', { name: /Tasks/ }).click();
   await page.waitForLoadState('networkidle');
 
   // The service worker must be controlling the page, and the app shell must be cached.
@@ -269,13 +435,50 @@ test('installed app reopens offline from its saved copy and says how old that co
   await context.setOffline(true);
   await page.reload();
   await expect(page.locator('#main-screen')).toBeVisible();
+  const offlineDashboardData = await page.evaluate(async () => {
+    const date = DateUtil.today();
+    const month = date.slice(0, 7);
+    const [dashboard, monthly, week, totals] = await Promise.all([
+      Api.get(`/dashboard?date=${date}`),
+      Api.get(`/dashboard/monthly?month=${month}`),
+      Api.get(`/dashboard/week?date=${date}`),
+      Api.get('/dashboard/totals'),
+    ]);
+    return { date, dashboard, monthly, week, totals };
+  });
+  expect(offlineDashboardData.dashboard.summary).toHaveProperty('percentage');
+  expect(offlineDashboardData.dashboard.summary.percentage).toBe(0);
+  expect(offlineDashboardData.monthly.days.find((day) => day.date === offlineDashboardData.date).percentage).toBe(0);
+  expect(offlineDashboardData.week).toHaveProperty('previousWeekly');
+  expect(offlineDashboardData.week).toHaveProperty('pendingAgenda');
+  expect(offlineDashboardData.totals).toHaveProperty('xpPerLevel', 500);
   await page.getByRole('link', { name: /Tasks/ }).click();
   await expect(page.getByText(taskName, { exact: true })).toBeVisible();
   await expect(page.locator('#connectivity-status')).toContainText('Showing saved data');
   await expect(page.locator('#connectivity-status')).toContainText('was saved');
+  const savedAccountTasks = await page.evaluate(async () => (await Api.get('/export')).tasks.map((task) => task.title));
+  expect(savedAccountTasks).toContain(taskName);
+  for (const { route, selector } of cachedSections.slice().reverse()) {
+    await page.locator(`a[data-route="${route}"]`).click();
+    await expect(page.locator(`#content ${selector}`)).toBeVisible();
+    await expect(page.locator('#content')).not.toContainText('This data is not saved on this device yet.');
+  }
 
   await context.setOffline(false);
   await expect(page.locator('#connectivity-status')).toBeHidden({ timeout: 20000 });
+  const userId = await page.evaluate(() => String(Api.getUser().id));
+  await page.getByRole('link', { name: /Settings/ }).click();
+  await page.locator('#settings-logout').click();
+  await expect(page.locator('#auth-screen')).toBeVisible();
+  await expect.poll(() => page.evaluate((id) => new Promise((resolve, reject) => {
+    const open = indexedDB.open('selfup-offline');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const request = open.result.transaction('account', 'readonly').objectStore('account').get(id);
+      request.onsuccess = () => { open.result.close(); resolve(Boolean(request.result)); };
+      request.onerror = () => reject(request.error);
+    };
+  }), userId)).toBe(false);
 });
 
 test('a change the server refuses is held for review while valid changes still sync', async ({ page, context }) => {
@@ -310,7 +513,7 @@ test('a change the server refuses is held for review while valid changes still s
   expect(titles).toContain(validTitle);
 });
 
-test('encrypted export hides entries and is never kept in the offline copy', async ({ page, context }) => {
+test('encrypted exports stay out of page cache while full account copy is stored separately', async ({ page, context }) => {
   const { suffix, email } = await signUpFresh(page, context, 'backup');
   await page.getByRole('link', { name: /Tasks/ }).click();
   const secretTask = `Private task ${suffix}`;
@@ -349,6 +552,17 @@ test('encrypted export hides entries and is never kept in the offline copy', asy
   }));
   expect(cachedPaths.length).toBeGreaterThan(0);
   expect(cachedPaths.some((path) => path.startsWith('/export'))).toBe(false);
+
+  const localCopy = await page.evaluate(() => new Promise((resolve, reject) => {
+    const open = indexedDB.open('selfup-offline');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const request = open.result.transaction('account', 'readonly').objectStore('account').get(String(Api.getUser().id));
+      request.onsuccess = () => { open.result.close(); resolve(request.result); };
+      request.onerror = () => reject(request.error);
+    };
+  }));
+  expect(localCopy.data.tasks.some((task) => task.title === secretTask)).toBe(true);
 });
 
 test('first-run screen explains where data lives and offers sample entries', async ({ page, context }) => {

@@ -6,7 +6,7 @@ const { todayKey } = require('../utils/date');
 const router = express.Router();
 router.use(requireAuth);
 
-const EXPORT_VERSION = 10;
+const EXPORT_VERSION = 11;
 
 // GET /api/export -> every row the user has ever logged, as one JSON file.
 // Meant for personal backup/portability, not as a general-purpose API.
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
   const userId = req.userId;
   const q = (sql) => pool.query(sql, [userId]).then((r) => r.rows);
   const [user, tasks, expenses, budgets, monthlyAllowances, recurringBills, billOccurrences, savingsFunds, savingsEntries, recovery, workouts, diet, schedule, goals, reflections, weeklyPlans, focusCheckins, scoringPreferences, templates, milestones] = await Promise.all([
-    pool.query('SELECT id, name, username, email, created_at FROM users WHERE id = $1', [userId]),
+    pool.query('SELECT id, name, username, email, avatar_data AS avatar, created_at FROM users WHERE id = $1', [userId]),
     q(`SELECT to_char(task_date, 'YYYY-MM-DD') AS task_date, period, title, done, points
          FROM tasks WHERE user_id = $1 ORDER BY task_date, period, id`),
     q(`SELECT to_char(e.expense_date, 'YYYY-MM-DD') AS expense_date, e.title, e.category, e.amount, e.kind,

@@ -67,6 +67,7 @@ router.get('/strip', async (req, res) => {
   ]);
   res.json({
     days: days.map((d) => ({ date: d.date, percentage: d.percentage })),
+    past: rollingDays.map((d) => ({ date: d.date, percentage: d.percentage })),
     recap: computeWeekSummary(rollingDays),
   });
 });

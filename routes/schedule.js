@@ -35,6 +35,24 @@ router.get('/export.ics', async (req, res) => {
   res.send(buildCalendar(result.rows, req.userId));
 });
 
+// GET /api/schedule/upcoming?from=YYYY-MM-DD -> all pending events from this date onward.
+router.get('/upcoming', async (req, res) => {
+  const from = req.query.from || todayKey();
+  if (typeof from !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(from)
+    || toDateKey(parseDateKey(from)) !== from) {
+    return res.status(400).json({ error: 'A valid starting date is required.' });
+  }
+  const result = await pool.query(
+    `SELECT id, to_char(item_date, 'YYYY-MM-DD') AS item_date, title, location,
+            to_char(start_time, 'HH24:MI:SS') AS start_time, planned_minutes
+     FROM schedule_items
+     WHERE user_id = $1 AND item_date >= $2 AND status = 'pending'
+     ORDER BY item_date, start_time NULLS LAST, id`,
+    [req.userId, from]
+  );
+  res.json(result.rows);
+});
+
 // GET /api/schedule?date=2026-09-15  -> single day
 // GET /api/schedule?start=2026-09-15&end=2026-09-18  -> agenda across days (today/tomorrow/next day/etc.)
 router.get('/', async (req, res) => {

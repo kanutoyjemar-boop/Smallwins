@@ -11,6 +11,8 @@ const REMINDERS = [
   { type: 'morning', enabled: 'morning_enabled', time: 'morning_time' },
   { type: 'evening', enabled: 'evening_enabled', time: 'evening_time' },
   { type: 'streak', enabled: 'streak_enabled', time: 'streak_time' },
+  { type: 'agenda', enabled: 'agenda_enabled', time: 'agenda_time' },
+  { type: 'agenda_advance', enabled: 'agenda_advance_enabled', time: 'agenda_advance_time' },
 ];
 const LOCK_ID = 741206;
 
@@ -124,6 +126,19 @@ async function getCashflowBalance(database, userId, date) {
     Number(row.reserved) - Number(row.saved) + Number(row.withdrawn);
 }
 
+async function getAgendaForUser(database, userId, date, time = null) {
+  const { rows } = await database.query(
+    `SELECT title, start_time
+       FROM schedule_items
+      WHERE user_id = $1 AND item_date = $2::date AND status = 'pending'
+        AND ($3::time IS NULL OR start_time IS NULL OR start_time >= $3::time)
+      ORDER BY start_time NULLS LAST, id
+      LIMIT 5`,
+    [userId, date, time]
+  );
+  return rows;
+}
+
 async function shouldSend(database, userId, type, localDate, localTime, scheduledTime) {
   const previous = await database.query(
     `SELECT status, updated_at FROM notification_deliveries
@@ -151,11 +166,44 @@ async function sendCashflowAlert(database, pushClient, userId, type, localDate, 
   }
 }
 
-async function sendReminder(database, pushClient, setting, reminder, localDate, helpers) {
+async function sendReminder(database, pushClient, setting, reminder, localDate, localTime, helpers) {
   const deliveryId = await claimDelivery(database, setting.user_id, reminder.type, localDate);
   if (!deliveryId) return;
 
   try {
+    if (reminder.type === 'agenda' || reminder.type === 'agenda_advance') {
+      const advanceDays = reminder.type === 'agenda_advance'
+        ? Number(setting.agenda_advance_days_before)
+        : 0;
+      const eventDate = addDays(localDate, advanceDays);
+      const events = await helpers.getAgendaForUser(
+        setting.user_id,
+        eventDate,
+        reminder.type === 'agenda' ? localTime : null
+      );
+      if (!events.length) {
+        await setDeliveryStatus(database, deliveryId, 'skipped');
+        return;
+      }
+
+      const eventList = events.map((event) => {
+        const time = event.start_time ? `${String(event.start_time).slice(0, 5)} ` : '';
+        return `${time}${event.title}`;
+      });
+      const remaining = events.length === 5 ? ' · and more' : '';
+      const body = `${eventList.join(' · ')}${remaining}`;
+      const title = reminder.type === 'agenda_advance'
+        ? `Agenda in ${advanceDays} day${advanceDays === 1 ? '' : 's'}`
+        : `${events.length}${events.length === 5 ? '+' : ''} event${events.length === 1 ? '' : 's'} on today's agenda`;
+      const result = await pushClient.sendToUser(setting.user_id, {
+        title,
+        body: body.length > 180 ? `${body.slice(0, 177)}...` : body,
+        url: '/#/schedule',
+      });
+      await setDeliveryStatus(database, deliveryId, result.sent > 0 ? 'sent' : 'skipped');
+      return;
+    }
+
     const day = await helpers.getDayForUser(setting.user_id, localDate);
     if (setting.smart_enabled) {
       if (reminder.type === 'morning'
@@ -202,6 +250,7 @@ function createScheduler({
   makePushMessage = pushMessage,
   getBillsDueForUser = getBillsDue,
   getBalanceForUser = getCashflowBalance,
+  getAgendaForUser: getAgenda = getAgendaForUser,
 } = {}) {
   let task = null;
   let activeTick = null;
@@ -233,10 +282,11 @@ function createScheduler({
           if (!setting[reminder.enabled] || local.time < setting[reminder.time]) continue;
           if (!await shouldSend(database, setting.user_id, reminder.type, local.date, local.time, setting[reminder.time])) continue;
           try {
-            await sendReminder(database, pushClient, setting, reminder, local.date, {
+            await sendReminder(database, pushClient, setting, reminder, local.date, local.time, {
               getDayForUser,
               getStreak,
               makePushMessage,
+              getAgendaForUser: (userId, date, time) => getAgenda(database, userId, date, time),
             });
           } catch (err) {
             logger.error('reminder_delivery_failed', {
@@ -353,6 +403,7 @@ module.exports = {
   dueWithinRecoveryWindow,
   getBillsDue,
   getCashflowBalance,
+  getAgendaForUser,
   localDateTime,
   start: () => scheduler.start(),
   stop: () => scheduler.stop(),

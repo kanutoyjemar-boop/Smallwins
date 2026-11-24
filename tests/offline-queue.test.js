@@ -62,10 +62,12 @@ test('offline queue shows pending changes, remaps ids, and skips rejected change
     const day = DateUtil.today();
     const existing = await Api.post('/tasks', { task_date: day, period: 'AM', title: 'Existing', points: 10 });
     await Api.get(`/tasks?date=${day}`); // saves an offline copy
-    await Api.get('/export'); // a full-account export must never be kept as an offline copy
+    const accountCopy = await Api.get('/export');
+    assert.ok(accountCopy.tasks.some((task) => task.title === 'Existing'));
 
     online = false;
-    await assert.rejects(() => Api.get('/export'), 'exports are not served from the offline copy');
+    const offlineCopy = await Api.get('/export');
+    assert.ok(offlineCopy.tasks.some((task) => task.title === 'Existing'), 'the full account copy is available offline');
     assert.ok((await Api.post('/tasks', { task_date: day, period: 'AM', title: 'Offline A', points: 10 })).queued);
     let list = await Api.get(`/tasks?date=${day}`);
     const cachedEvent = events.find((event) => event.type === 'selfup:cached-data');

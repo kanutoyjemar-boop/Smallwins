@@ -40,12 +40,16 @@ router.put('/settings', async (req, res) => {
   const {
     timezone, smart_enabled, morning_enabled, morning_time,
     evening_enabled, evening_time, streak_enabled, streak_time,
+    agenda_enabled, agenda_time,
+    agenda_advance_enabled, agenda_advance_days_before, agenda_advance_time,
     bill_due_enabled, bill_due_days_before, bill_due_time,
     low_balance_enabled, low_balance_threshold, low_balance_time,
   } = req.body;
 
   for (const [label, val] of [
     ['morning_time', morning_time], ['evening_time', evening_time], ['streak_time', streak_time],
+    ['agenda_time', agenda_time],
+    ['agenda_advance_time', agenda_advance_time],
     ['bill_due_time', bill_due_time], ['low_balance_time', low_balance_time],
   ]) {
     if (val !== undefined && !TIME_RE.test(val)) {
@@ -55,6 +59,8 @@ router.put('/settings', async (req, res) => {
   for (const [label, value] of [
     ['smart_enabled', smart_enabled], ['morning_enabled', morning_enabled],
     ['evening_enabled', evening_enabled], ['streak_enabled', streak_enabled],
+    ['agenda_enabled', agenda_enabled],
+    ['agenda_advance_enabled', agenda_advance_enabled],
     ['bill_due_enabled', bill_due_enabled], ['low_balance_enabled', low_balance_enabled],
   ]) {
     if (value !== undefined && typeof value !== 'boolean') {
@@ -64,6 +70,11 @@ router.put('/settings', async (req, res) => {
   if (bill_due_days_before !== undefined &&
       (!Number.isInteger(bill_due_days_before) || bill_due_days_before < 0 || bill_due_days_before > 7)) {
     return res.status(400).json({ error: 'Bill reminder lead time must be between 0 and 7 days.' });
+  }
+  if (agenda_advance_days_before !== undefined &&
+      (!Number.isInteger(agenda_advance_days_before) ||
+       agenda_advance_days_before < 1 || agenda_advance_days_before > 7)) {
+    return res.status(400).json({ error: 'Agenda reminder lead time must be between 1 and 7 days.' });
   }
   if (low_balance_threshold !== undefined &&
       (!Number.isFinite(Number(low_balance_threshold)) || Number(low_balance_threshold) < 0 ||
@@ -88,16 +99,23 @@ router.put('/settings', async (req, res) => {
        evening_time = COALESCE($7, evening_time),
        streak_enabled = COALESCE($8, streak_enabled),
        streak_time = COALESCE($9, streak_time),
-       bill_due_enabled = COALESCE($10, bill_due_enabled),
-       bill_due_days_before = COALESCE($11, bill_due_days_before),
-       bill_due_time = COALESCE($12, bill_due_time),
-       low_balance_enabled = COALESCE($13, low_balance_enabled),
-       low_balance_threshold = COALESCE($14, low_balance_threshold),
-       low_balance_time = COALESCE($15, low_balance_time)
+       agenda_enabled = COALESCE($10, agenda_enabled),
+       agenda_time = COALESCE($11, agenda_time),
+       agenda_advance_enabled = COALESCE($12, agenda_advance_enabled),
+       agenda_advance_days_before = COALESCE($13, agenda_advance_days_before),
+       agenda_advance_time = COALESCE($14, agenda_advance_time),
+       bill_due_enabled = COALESCE($15, bill_due_enabled),
+       bill_due_days_before = COALESCE($16, bill_due_days_before),
+       bill_due_time = COALESCE($17, bill_due_time),
+       low_balance_enabled = COALESCE($18, low_balance_enabled),
+       low_balance_threshold = COALESCE($19, low_balance_threshold),
+       low_balance_time = COALESCE($20, low_balance_time)
      WHERE user_id=$1 RETURNING *`,
-     [userId, timezone, smart_enabled, morning_enabled, morning_time, evening_enabled, evening_time,
-       streak_enabled, streak_time, bill_due_enabled, bill_due_days_before, bill_due_time,
-       low_balance_enabled, low_balance_threshold, low_balance_time]
+    [userId, timezone, smart_enabled, morning_enabled, morning_time, evening_enabled, evening_time,
+      streak_enabled, streak_time, agenda_enabled, agenda_time,
+      agenda_advance_enabled, agenda_advance_days_before, agenda_advance_time,
+      bill_due_enabled, bill_due_days_before, bill_due_time,
+      low_balance_enabled, low_balance_threshold, low_balance_time]
   );
   res.json({ settings: rows[0] });
 });

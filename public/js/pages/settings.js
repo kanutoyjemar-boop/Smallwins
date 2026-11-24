@@ -9,6 +9,7 @@ const PageSettings = (() => {
     ]);
     const session = Api.getUser();
     Api.setSession(Api.getToken(), { ...session, ...profile });
+    if (window.renderProfileAvatar) window.renderProfileAvatar(profile);
     el.innerHTML = template(settings, deviceCount, pushConfigured, totals, scoring, profile, sampleData);
     wire(el, settings);
   }
@@ -150,6 +151,26 @@ const PageSettings = (() => {
             <input type="time" id="streak-time" value="${s.streak_time}">
           </div>
 
+          <div class="section-label">Agenda reminder (optional)</div>
+          <p class="meta">Both reminders use your timezone and require browser notifications. The advance reminder lists pending events on the selected future date.</p>
+          <div class="reminder-row">
+            <label class="toggle-row">
+              <input type="checkbox" id="agenda-enabled" ${s.agenda_enabled ? 'checked' : ''}>
+              <span class="reminder-switch">Today's agenda</span>
+            </label>
+            <input type="time" id="agenda-time" value="${s.agenda_time || '08:00'}" aria-label="Agenda reminder time">
+          </div>
+          <div class="reminder-row">
+            <label class="toggle-row">
+              <input type="checkbox" id="agenda-advance-enabled" ${s.agenda_advance_enabled ? 'checked' : ''}>
+              <span class="reminder-switch">Advance agenda reminder</span>
+            </label>
+            <select id="agenda-advance-days-before" aria-label="Days before agenda reminder">
+              ${[1, 2, 3, 4, 5, 6, 7].map((days) => `<option value="${days}" ${Number(s.agenda_advance_days_before || 1) === days ? 'selected' : ''}>${days} day${days === 1 ? '' : 's'} before</option>`).join('')}
+            </select>
+            <input type="time" id="agenda-advance-time" value="${s.agenda_advance_time || '18:00'}" aria-label="Advance agenda reminder time">
+          </div>
+
           <div class="section-label">Money alerts (optional)</div>
           <p class="meta">These alerts use your timezone and require a device with notifications enabled. Low-balance alerts also require a monthly allowance; they send at most once per month.</p>
           <div class="reminder-row">
@@ -186,6 +207,24 @@ const PageSettings = (() => {
 
       <div class="section-label">Account</div>
       <div class="panel">
+        <div class="profile-picture-row">
+          <div class="profile-picture-preview" id="profile-picture-preview" aria-label="Profile picture preview">
+            <img id="profile-picture-preview-image" class="${profile.avatar ? '' : 'hidden'}" src="${profile.avatar ? escapeHtml(profile.avatar) : ''}" alt="Profile picture preview">
+            <span id="profile-picture-preview-initials" class="${profile.avatar ? 'hidden' : ''}" aria-hidden="true">${escapeHtml((profile.name || profile.email || '?').trim().slice(0, 1).toUpperCase())}</span>
+          </div>
+          <div class="profile-picture-controls">
+            <strong>Profile picture</strong>
+            <p class="meta">Choose a JPG, PNG, or WebP image up to 5 MB. It is resized and stored in your private account.</p>
+            <input type="file" id="profile-picture-file" class="hidden" accept="image/jpeg,image/png,image/webp">
+            <div class="row">
+              <button type="button" class="btn btn-ghost btn-sm" id="choose-profile-picture">Choose picture</button>
+              <button type="button" class="btn btn-primary btn-sm" id="save-profile-picture" disabled>Save picture</button>
+              <button type="button" class="btn btn-ghost btn-sm ${profile.avatar ? '' : 'hidden'}" id="remove-profile-picture">Remove picture</button>
+            </div>
+            <p class="form-error" id="profile-picture-error" aria-live="polite"></p>
+            <p class="form-success" id="profile-picture-saved" aria-live="polite"></p>
+          </div>
+        </div>
         <form id="profile-form">
           <label>Name<input type="text" id="profile-name" value="${escapeHtml(profile.name || '')}" required maxlength="120"></label>
           <label>Username<input type="text" id="profile-username" value="${escapeHtml(profile.username || '')}" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" autocomplete="username" aria-describedby="profile-username-help"></label>
@@ -214,8 +253,8 @@ const PageSettings = (() => {
       <div class="section-label">Change password</div>
       <div class="panel">
         <form id="password-form">
-          <label>Current password<input type="password" id="pw-current" required autocomplete="current-password"></label>
-          <label>New password<input type="password" id="pw-new" required minlength="12" autocomplete="new-password"></label>
+          <label>Current password<div class="password-input-wrap"><input type="password" id="pw-current" required autocomplete="current-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="pw-current" aria-label="Show password" aria-pressed="false">Show</button></div></label>
+          <label>New password<div class="password-input-wrap"><input type="password" id="pw-new" required minlength="12" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="pw-new" aria-label="Show password" aria-pressed="false">Show</button></div></label>
           <p class="form-error" id="password-error"></p>
           <p class="form-success" id="password-saved"></p>
           <button type="submit" class="btn btn-primary btn-block" style="margin-top:6px">Update password</button>
@@ -228,7 +267,7 @@ const PageSettings = (() => {
           <strong>${['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname) ? 'Stored on this computer' : 'Stored in your online account'}</strong>
           <p class="rating-sub" style="margin:4px 0 12px">${['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname)
             ? 'This is the local Windows app. Entries live in the database on this computer and work with no internet. They do not sync with a hosted account or your phone. To move data between them, export a backup from one and import it into the other.'
-            : 'This is the hosted app. Your account is stored online, and recent pages are also kept on this device so you can view them offline. Changes made offline wait on this device until you reconnect. It does not sync with a local Windows app; use export and import to move data between them.'}</p>
+            : 'This is the hosted app. A complete copy of your account data is stored on this device and refreshed when you connect. Changes made offline wait on this device until the server accepts them. Logging out removes the downloaded copy, but keeps queued changes for your next sign-in. Uninstalling may not clear browser site data; clear it in browser settings if needed. It does not sync with a local Windows app; use export and import to move data between them.'}</p>
         </div>
         <p class="rating-sub" style="margin:0 0 12px">Your account records are stored in this app’s PostgreSQL database; your browser also stores your sign-in session and local display/sharing preferences. Export a JSON copy for backup or moving elsewhere. Account deletion removes your account and its associated records from the database; your hosting provider may retain backups according to its own retention policy.</p>
         <p class="rating-sub"><a href="/privacy.html" target="_blank" rel="noopener">Read the privacy notice</a></p>
@@ -251,7 +290,7 @@ const PageSettings = (() => {
         <div class="account-delete">
           <div class="section-label">Delete account</div>
           <p class="rating-sub">This permanently deletes your account and logged data. Export a backup first if you may want it later.</p>
-          <label>Current password<input type="password" id="delete-password" autocomplete="current-password"></label>
+          <label>Current password<div class="password-input-wrap"><input type="password" id="delete-password" autocomplete="current-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="delete-password" aria-label="Show password" aria-pressed="false">Show</button></div></label>
           <label>Type DELETE to confirm<input type="text" id="delete-confirmation" autocomplete="off"></label>
           <p class="form-error" id="delete-error"></p>
           <button class="btn btn-danger-outline btn-block" id="delete-account" type="button">Permanently delete my account</button>
@@ -326,6 +365,11 @@ const PageSettings = (() => {
           evening_time: el.querySelector('#evening-time').value,
           streak_enabled: el.querySelector('#streak-enabled').checked,
           streak_time: el.querySelector('#streak-time').value,
+          agenda_enabled: el.querySelector('#agenda-enabled').checked,
+          agenda_time: el.querySelector('#agenda-time').value,
+          agenda_advance_enabled: el.querySelector('#agenda-advance-enabled').checked,
+          agenda_advance_days_before: Number(el.querySelector('#agenda-advance-days-before').value),
+          agenda_advance_time: el.querySelector('#agenda-advance-time').value,
           bill_due_enabled: el.querySelector('#bill-due-enabled').checked,
           bill_due_days_before: Number(el.querySelector('#bill-due-days-before').value),
           bill_due_time: el.querySelector('#bill-due-time').value,
@@ -406,6 +450,79 @@ const PageSettings = (() => {
       }
     });
 
+    const pictureInput = el.querySelector('#profile-picture-file');
+    const pictureImage = el.querySelector('#profile-picture-preview-image');
+    const pictureInitials = el.querySelector('#profile-picture-preview-initials');
+    const savePictureButton = el.querySelector('#save-profile-picture');
+    const removePictureButton = el.querySelector('#remove-profile-picture');
+    const pictureError = el.querySelector('#profile-picture-error');
+    const pictureSaved = el.querySelector('#profile-picture-saved');
+    let pendingAvatar;
+
+    el.querySelector('#choose-profile-picture').addEventListener('click', () => pictureInput.click());
+    pictureInput.addEventListener('change', async () => {
+      const file = pictureInput.files[0];
+      if (!file) return;
+      pictureError.textContent = '';
+      pictureSaved.textContent = '';
+      pendingAvatar = undefined;
+      savePictureButton.disabled = true;
+      try {
+        pendingAvatar = await resizeProfilePicture(file);
+        pictureImage.src = pendingAvatar;
+        pictureImage.classList.remove('hidden');
+        pictureInitials.classList.add('hidden');
+        savePictureButton.disabled = false;
+      } catch (error) {
+        pictureError.textContent = error.message;
+      } finally {
+        pictureInput.value = '';
+      }
+    });
+
+    savePictureButton.addEventListener('click', async () => {
+      if (!pendingAvatar) return;
+      savePictureButton.disabled = true;
+      pictureError.textContent = '';
+      pictureSaved.textContent = '';
+      try {
+        const updated = await Api.patch('/auth/me', { avatar: pendingAvatar });
+        const user = Api.getUser();
+        Api.setSession(Api.getToken(), { ...user, ...updated });
+        if (window.renderProfileAvatar) window.renderProfileAvatar(updated);
+        pendingAvatar = undefined;
+        removePictureButton.classList.remove('hidden');
+        pictureSaved.textContent = 'Profile picture saved.';
+      } catch (error) {
+        pictureError.textContent = error.message;
+        savePictureButton.disabled = false;
+      }
+    });
+
+    removePictureButton.addEventListener('click', async () => {
+      removePictureButton.disabled = true;
+      pictureError.textContent = '';
+      pictureSaved.textContent = '';
+      try {
+        const updated = await Api.patch('/auth/me', { avatar: null });
+        const user = Api.getUser();
+        Api.setSession(Api.getToken(), { ...user, ...updated });
+        if (window.renderProfileAvatar) window.renderProfileAvatar(updated);
+        pendingAvatar = undefined;
+        savePictureButton.disabled = true;
+        pictureImage.removeAttribute('src');
+        pictureImage.classList.add('hidden');
+        pictureInitials.textContent = (updated.name || updated.email || '?').trim().slice(0, 1).toUpperCase();
+        pictureInitials.classList.remove('hidden');
+        removePictureButton.classList.add('hidden');
+        pictureSaved.textContent = 'Profile picture removed.';
+      } catch (error) {
+        pictureError.textContent = error.message;
+      } finally {
+        removePictureButton.disabled = false;
+      }
+    });
+
     el.querySelector('#profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const errEl = el.querySelector('#profile-error');
@@ -420,6 +537,7 @@ const PageSettings = (() => {
         });
         const user = Api.getUser();
         Api.setSession(Api.getToken(), { ...user, ...updated });
+        if (window.renderProfileAvatar) window.renderProfileAvatar(updated);
         savedEl.textContent = 'Saved.';
         setTimeout(() => { savedEl.textContent = ''; }, 2500);
       } catch (err) {
@@ -445,6 +563,7 @@ const PageSettings = (() => {
       } catch (err) {
         errEl.textContent = err.message;
       }
+
     });
 
     el.querySelector('#export-data').addEventListener('click', async () => {
@@ -560,6 +679,48 @@ const PageSettings = (() => {
         button.disabled = false;
       }
     });
+  }
+
+  async function resizeProfilePicture(file) {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      throw new Error('Choose a JPG, PNG, or WebP image.');
+    }
+    if (file.size > 5 * 1024 * 1024) throw new Error('Choose an image smaller than 5 MB.');
+
+    let bitmap;
+    let objectUrl;
+    try {
+      if (typeof createImageBitmap === 'function') {
+        bitmap = await createImageBitmap(file);
+      } else {
+        objectUrl = URL.createObjectURL(file);
+        bitmap = await new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error('Could not decode image.'));
+          image.src = objectUrl;
+        });
+      }
+      const scale = Math.min(1, 256 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not process this image in your browser.');
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.82, 0.68, 0.55]) {
+        const data = canvas.toDataURL('image/jpeg', quality);
+        if ((data.length - 'data:image/jpeg;base64,'.length) * 0.75 <= 256 * 1024) return data;
+      }
+      throw new Error('This image could not be reduced enough. Try a simpler image.');
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Could not process')) throw error;
+      if (error instanceof Error && error.message.startsWith('This image')) throw error;
+      throw new Error('Could not read this image. Try a different JPG, PNG, or WebP file.');
+    } finally {
+      if (bitmap && typeof bitmap.close === 'function') bitmap.close();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
   }
 
   return { render };
