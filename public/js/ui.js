@@ -15,10 +15,10 @@ const UI = (() => {
     setTimeout(close, undo ? 5000 : ms);
   }
 
-  function modal(inner) {
+  function modal(inner, className = '', getResult = null, onReady = null) {
     return new Promise((resolve) => {
       const previousFocus = document.activeElement;
-      const m = $(`<div class="modal-backdrop"><div class="modal" role="dialog" aria-modal="true" tabindex="-1">${inner}</div></div>`);
+      const m = $(`<div class="modal-backdrop"><div class="modal ${className}" role="dialog" aria-modal="true" tabindex="-1">${inner}</div></div>`);
       const dialog = m.querySelector('.modal');
       const title = dialog.querySelector('h3');
       if (title) {
@@ -50,17 +50,104 @@ const UI = (() => {
       document.addEventListener('keydown', esc);
       m.addEventListener('click', (e) => { if (e.target === m) done(null); });
       m._done = done;
-      const input = m.querySelector('input');
-      if (input) { input.focus(); input.select(); } else (dialog.querySelector('button') || dialog).focus();
-      m.querySelector('[data-ok]')?.addEventListener('click', () => done(input ? input.value : true));
+      const input = m.querySelector('input:not([type="checkbox"]):not([type="radio"])');
+      if (input) { input.focus(); input.select(); }
+      else (dialog.querySelector('input[type="checkbox"]:not(:disabled), button:not(:disabled)') || dialog).focus();
+      m.querySelector('[data-ok]')?.addEventListener('click', () => done(input ? input.value : getResult ? getResult(dialog) : true));
       m.querySelector('[data-cancel]')?.addEventListener('click', () => done(input ? null : false));
       input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(input.value); });
+      if (onReady) onReady(dialog);
     });
   }
   const prompt = (title, value = '') => modal(`<h3>${escapeHtml(title)}</h3><input type="text" value="${escapeHtml(value)}"><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok>Save</button></div>`);
   const passwordPrompt = (title, help) => modal(`<h3>${escapeHtml(title)}</h3>${help ? `<p class="meta">${escapeHtml(help)}</p>` : ''}<label>Passphrase<div class="password-input-wrap"><input type="password" id="password-prompt-input" autocomplete="new-password"><button type="button" class="password-toggle" data-password-toggle aria-controls="password-prompt-input" aria-label="Show password" aria-pressed="false">Show</button></div></label><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-primary" data-ok>Continue</button></div>`);
   const confirm = (msg) => modal(`<h3>${escapeHtml(msg)}</h3><div class="modal-actions"><button class="btn btn-ghost" data-cancel>Cancel</button><button class="btn btn-danger" data-ok>Confirm</button></div>`);
   const alert = (msg) => toast(msg);
+
+  function routineItemKey(kind, item) {
+    if (kind === 'tasks') return JSON.stringify([item.period, item.title.trim()]);
+    if (kind === 'workouts') {
+      const exercises = (item.exercises || []).map((exercise) => [
+        exercise.name, exercise.sets, exercise.reps, exercise.weight_kg ?? null,
+      ]);
+      return JSON.stringify([
+        item.activity_type, Number(item.duration_minutes || 0), item.training_split || null,
+        item.distance_km ?? null, item.steps ?? null, exercises,
+      ]);
+    }
+    return JSON.stringify([item.title.trim(), item.start_time ? item.start_time.slice(0, 5) : null]);
+  }
+
+  function routineItemLabel(kind, item) {
+    if (kind === 'tasks') return `${item.period === 'AM' ? 'Morning' : 'Evening'} · ${item.title}`;
+    if (kind === 'workouts') return `${item.activity_type}${item.duration_minutes ? ` · ${item.duration_minutes} min` : ''}`;
+    return `${item.start_time ? `${item.start_time.slice(0, 5)} · ` : ''}${item.title}`;
+  }
+
+  async function confirmRoutineApply(routine, date, existing) {
+    const planned = new Set(existing.map((item) => routineItemKey(routine.kind, item)));
+    const previews = routine.items.map((item) => {
+      const key = routineItemKey(routine.kind, item);
+      const duplicate = planned.has(key);
+      planned.add(key);
+      return { item, duplicate };
+    });
+    const list = previews.map(({ item, duplicate }, index) => `
+      <li class="${duplicate ? 'routine-preview-existing' : ''}">
+        <label class="routine-preview-choice">
+          <input type="checkbox" data-routine-include="${index}" ${duplicate ? '' : 'checked'}>
+          <span>${escapeHtml(routineItemLabel(routine.kind, item))}</span>
+        </label>
+        <small data-routine-status="${index}">${duplicate ? 'Already planned' : 'Will be added'}</small>
+      </li>`).join('');
+    const result = await modal(`
+      <h3>Preview ${escapeHtml(routine.name)}</h3>
+      <p class="meta">${escapeHtml(DateUtil.label(date))}</p>
+      <p class="meta" data-routine-summary aria-live="polite"></p>
+      <ul class="routine-preview-list">${list}</ul>
+      <p class="meta">Uncheck anything you don’t want. Matching items are kept, not duplicated.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-cancel>Cancel</button>
+        <button class="btn btn-primary" data-ok>Add selected items</button>
+      </div>`, 'routine-apply-modal', (dialog) => {
+      const selectedItems = [];
+      const seen = new Set(existing.map((item) => routineItemKey(routine.kind, item)));
+      dialog.querySelectorAll('[data-routine-include]:checked').forEach((input) => {
+        const item = routine.items[Number(input.dataset.routineInclude)];
+        const key = routineItemKey(routine.kind, item);
+        if (seen.has(key)) return;
+        seen.add(key);
+        selectedItems.push(item);
+      });
+      return { items: selectedItems, additions: selectedItems.length };
+    }, (dialog) => {
+      const update = () => {
+        const seen = new Set(existing.map((item) => routineItemKey(routine.kind, item)));
+        let additions = 0;
+        let duplicates = 0;
+        dialog.querySelectorAll('[data-routine-include]').forEach((input) => {
+          const index = Number(input.dataset.routineInclude);
+          const key = routineItemKey(routine.kind, routine.items[index]);
+          const duplicate = seen.has(key);
+          if (input.checked && !duplicate) additions += 1;
+          if (duplicate) duplicates += 1;
+          const status = dialog.querySelector(`[data-routine-status="${index}"]`);
+          status.textContent = duplicate ? 'Already planned' : input.checked ? 'Will be added' : 'Not selected';
+          status.parentElement.classList.toggle('routine-preview-existing', duplicate);
+          if (input.checked) seen.add(key);
+        });
+        const selected = dialog.querySelectorAll('[data-routine-include]:checked').length;
+        dialog.querySelector('[data-routine-summary]').textContent =
+          `${selected} selected · ${additions} to add · ${duplicates} already planned`;
+        const confirmButton = dialog.querySelector('[data-ok]');
+        confirmButton.disabled = additions === 0;
+        confirmButton.textContent = additions ? 'Add selected items' : 'Nothing to add';
+      };
+      dialog.querySelectorAll('[data-routine-include]').forEach((input) => input.addEventListener('change', update));
+      update();
+    });
+    return result || null;
+  }
 
   function routineWeekPlanner(selectId, buttonId, routines) {
     const days = [['Mon', 1], ['Tue', 2], ['Wed', 3], ['Thu', 4], ['Fri', 5], ['Sat', 6], ['Sun', 0]];
@@ -360,7 +447,7 @@ const UI = (() => {
     });
   }
 
-  return { movePill, toast, prompt, passwordPrompt, confirm, alert, confetti, countUp, celebrate, haptic, quickAdd, routineWeekPlanner, wireRoutineWeek, queueReview };
+  return { movePill, toast, prompt, passwordPrompt, confirm, confirmRoutineApply, alert, confetti, countUp, celebrate, haptic, quickAdd, routineWeekPlanner, wireRoutineWeek, queueReview };
 })();
 window.addEventListener('offline', () => UI.toast('You’re offline — supported changes are saved on this device until they can sync.', { ms: 5000 }));
 window.addEventListener('online', () => UI.toast('Back online', { kind: 'win' }));

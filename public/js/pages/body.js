@@ -176,7 +176,7 @@ const PageBody = (() => {
         <div class="panel-title"><h3>Training templates</h3><span class="count">${routines.length} saved</span></div>
         <div class="row routine-actions">
           <button class="btn btn-ghost btn-sm" id="save-workout-routine" type="button" ${workouts.length ? '' : 'disabled'}>Save today's training</button>
-          ${routines.length ? `<select id="workout-routine-select" aria-label="Choose a training template"><option value="">Apply a template…</option>${routines.map((routine) => `<option value="${routine.id}">${escapeHtml(routine.name)}</option>`).join('')}</select>` : ''}
+          ${routines.length ? `<select id="workout-routine-select" aria-label="Choose a training template to preview"><option value="">Preview a template…</option>${routines.map((routine) => `<option value="${routine.id}">${escapeHtml(routine.name)}</option>`).join('')}</select>` : ''}
         </div>
         ${routines.length ? UI.routineWeekPlanner('workout-week-select', 'apply-workout-week', routines) : ''}
       </div>
@@ -280,14 +280,39 @@ const PageBody = (() => {
     if (saveRoutine) saveRoutine.addEventListener('click', async () => {
       const name = await UI.prompt('Name this training template:', 'Strength and cardio session');
       if (!name || !name.trim()) return;
-      await Api.post('/templates', { name: name.trim(), kind: 'workouts', items: workouts.map((workout) => ({ activity_type: workout.activity_type, duration_minutes: workout.duration_minutes, notes: workout.notes, training_split: workout.training_split, distance_km: workout.distance_km, steps: workout.steps, exercises: workout.exercises || [], points: workout.points })) });
-      renderWorkouts(el, date);
+      try {
+        await Api.post('/templates', { name: name.trim(), kind: 'workouts', items: workouts.map((workout) => ({ activity_type: workout.activity_type, duration_minutes: workout.duration_minutes, notes: workout.notes, training_split: workout.training_split, distance_km: workout.distance_km, steps: workout.steps, exercises: workout.exercises || [], points: workout.points })) });
+        UI.toast('Training routine saved.', { kind: 'win' });
+        renderWorkouts(el, date);
+      } catch (error) {
+        UI.alert(error.message);
+      }
     });
     const routineSelect = el.querySelector('#workout-routine-select');
     if (routineSelect) routineSelect.addEventListener('change', async () => {
-      if (!routineSelect.value) return;
-      await Api.post(`/templates/${routineSelect.value}/apply`, { date });
-      renderWorkouts(el, date);
+      const routine = routines.find((item) => String(item.id) === routineSelect.value);
+      if (!routine) return;
+      routineSelect.disabled = true;
+      try {
+        const preview = await UI.confirmRoutineApply(routine, date, workouts);
+        if (!preview) return;
+        if (!preview.additions) {
+          UI.toast('Those routine items are already planned.');
+          return;
+        }
+        const result = await Api.post(`/templates/${encodeURIComponent(routine.id)}/apply`, { date, items: preview.items });
+        if (result && result.queued) {
+          UI.toast('Routine saved offline. Its items will appear after your device syncs.', { kind: 'win' });
+        } else {
+          UI.toast(`Added ${result.count} routine ${result.count === 1 ? 'item' : 'items'}.`, { kind: 'win' });
+        }
+        renderWorkouts(el, date);
+      } catch (error) {
+        UI.alert(error.message);
+      } finally {
+        routineSelect.disabled = false;
+        routineSelect.value = '';
+      }
     });
     UI.wireRoutineWeek(el, 'workout-week-select', 'apply-workout-week', date, () => renderWorkouts(el, date));
     const copyWorkoutsBtn = el.querySelector('#copy-workouts');

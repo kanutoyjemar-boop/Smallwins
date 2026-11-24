@@ -62,7 +62,7 @@ const PageSchedule = (() => {
         <div class="panel-title"><h3>Agenda templates</h3><span class="count">${routines.length} saved</span></div>
         <div class="row routine-actions">
           <button class="btn btn-ghost btn-sm" id="save-schedule-routine" type="button" ${items.length ? '' : 'disabled'}>Save this day's agenda</button>
-          ${routines.length ? `<select id="schedule-routine-select" aria-label="Choose an agenda template"><option value="">Apply a template…</option>${routines.map((routine) => `<option value="${routine.id}">${escapeHtml(routine.name)}</option>`).join('')}</select>` : ''}
+          ${routines.length ? `<select id="schedule-routine-select" aria-label="Choose an agenda template to preview"><option value="">Preview a template…</option>${routines.map((routine) => `<option value="${routine.id}">${escapeHtml(routine.name)}</option>`).join('')}</select>` : ''}
         </div>
         ${routines.length ? UI.routineWeekPlanner('schedule-week-select', 'apply-schedule-week', routines) : ''}
       </div>
@@ -125,14 +125,39 @@ const PageSchedule = (() => {
     if (saveRoutine) saveRoutine.addEventListener('click', async () => {
       const name = await UI.prompt('Name this agenda template:', 'Focused workday');
       if (!name || !name.trim()) return;
-      await Api.post('/templates', { name: name.trim(), kind: 'schedule', items: items.map((item) => ({ title: item.title, location: item.location, start_time: item.start_time, planned_minutes: item.planned_minutes, points: item.points })) });
-      render(el);
+      try {
+        await Api.post('/templates', { name: name.trim(), kind: 'schedule', items: items.map((item) => ({ title: item.title, location: item.location, start_time: item.start_time, planned_minutes: item.planned_minutes, points: item.points })) });
+        UI.toast('Agenda routine saved.', { kind: 'win' });
+        render(el);
+      } catch (error) {
+        UI.alert(error.message);
+      }
     });
     const routineSelect = el.querySelector('#schedule-routine-select');
     if (routineSelect) routineSelect.addEventListener('change', async () => {
-      if (!routineSelect.value) return;
-      await Api.post(`/templates/${routineSelect.value}/apply`, { date });
-      render(el);
+      const routine = routines.find((item) => String(item.id) === routineSelect.value);
+      if (!routine) return;
+      routineSelect.disabled = true;
+      try {
+        const preview = await UI.confirmRoutineApply(routine, date, items);
+        if (!preview) return;
+        if (!preview.additions) {
+          UI.toast('Those routine items are already planned.');
+          return;
+        }
+        const result = await Api.post(`/templates/${encodeURIComponent(routine.id)}/apply`, { date, items: preview.items });
+        if (result && result.queued) {
+          UI.toast('Routine saved offline. Its items will appear after your device syncs.', { kind: 'win' });
+        } else {
+          UI.toast(`Added ${result.count} routine ${result.count === 1 ? 'item' : 'items'}.`, { kind: 'win' });
+        }
+        render(el);
+      } catch (error) {
+        UI.alert(error.message);
+      } finally {
+        routineSelect.disabled = false;
+        routineSelect.value = '';
+      }
     });
     UI.wireRoutineWeek(el, 'schedule-week-select', 'apply-schedule-week', date, () => render(el));
 

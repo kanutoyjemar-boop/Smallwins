@@ -54,6 +54,44 @@ function validRoutineItem(kind, item) {
   return false;
 }
 
+function validDate(value) {
+  return typeof value === 'string' &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    toDateKey(parseDateKey(value)) === value;
+}
+
+async function insertRoutineItem(client, userId, date, kind, item) {
+  let query;
+  let values;
+  if (kind === 'tasks') {
+    query = `INSERT INTO tasks (user_id, task_date, period, title, points)
+             SELECT $1, $2, $3, $4, COALESCE($5, 10)
+             WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE user_id=$1 AND task_date=$2 AND period=$3 AND title=$4)`;
+    values = [userId, date, item.period, item.title.trim().slice(0, 140), item.points];
+  } else if (kind === 'workouts') {
+    const duration = Number(item.duration_minutes || 0);
+    query = `INSERT INTO workouts (user_id, workout_date, activity_type, duration_minutes, notes, training_split, distance_km, steps, exercises, points)
+             SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, COALESCE($10, 20)
+             WHERE NOT EXISTS (
+               SELECT 1 FROM workouts
+               WHERE user_id=$1 AND workout_date=$2 AND activity_type=$3 AND duration_minutes=$4
+                 AND training_split IS NOT DISTINCT FROM $6::text
+                 AND distance_km IS NOT DISTINCT FROM $7::numeric
+                 AND steps IS NOT DISTINCT FROM $8::integer
+                 AND exercises IS NOT DISTINCT FROM $9::jsonb
+             )`;
+    values = [userId, date, item.activity_type.trim().slice(0, 80), duration, item.notes || null, item.training_split || null, item.distance_km ?? null, item.steps ?? null, JSON.stringify(item.exercises || []), item.points];
+  } else if (kind === 'schedule') {
+    query = `INSERT INTO schedule_items (user_id, item_date, title, location, start_time, planned_minutes, points)
+             SELECT $1, $2, $3, $4, $5, COALESCE($6, 30), COALESCE($7, 10)
+             WHERE NOT EXISTS (SELECT 1 FROM schedule_items WHERE user_id=$1 AND item_date=$2 AND title=$3 AND start_time IS NOT DISTINCT FROM $5::time)`;
+    values = [userId, date, item.title.trim().slice(0, 140), item.location || null, item.start_time || null, item.planned_minutes, item.points];
+  } else {
+    throw new Error('This routine has an unsupported type.');
+  }
+  return client.query(query, values);
+}
+
 router.get('/', async (req, res) => {
   const kind = req.query.kind;
   const result = await pool.query(
@@ -67,8 +105,8 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const { name, kind, items } = req.body;
-  if (!name || !['tasks', 'workouts', 'schedule'].includes(kind) || !Array.isArray(items) || !items.length) {
-    return res.status(400).json({ error: 'A name, valid routine type, and at least one item are required.' });
+  if (!name || !['tasks', 'workouts', 'schedule'].includes(kind) || !Array.isArray(items) || !items.length || items.length > 100) {
+    return res.status(400).json({ error: 'A name, valid routine type, and 1 to 100 items are required.' });
   }
   if (!items.every((item) => validRoutineItem(kind, item))) {
     return res.status(400).json({ error: 'The routine contains an invalid item.' });
@@ -82,8 +120,8 @@ router.post('/', async (req, res) => {
 });
 
 router.post('/:id/apply', async (req, res) => {
-  const { date } = req.body;
-  if (!date) return res.status(400).json({ error: 'A target date is required.' });
+  const { date, items: selectedItems } = req.body || {};
+  if (!validDate(date)) return res.status(400).json({ error: 'A valid target date is required.' });
   const result = await pool.query('SELECT * FROM routine_templates WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
   if (!result.rows.length) return res.status(404).json({ error: 'Routine not found.' });
 
@@ -91,24 +129,19 @@ router.post('/:id/apply', async (req, res) => {
   if (!Array.isArray(routine.items) || !routine.items.every((item) => validRoutineItem(routine.kind, item))) {
     return res.status(400).json({ error: 'This routine contains an invalid item.' });
   }
+  const items = selectedItems === undefined ? routine.items : selectedItems;
+  if (!Array.isArray(items) || !items.length || items.length > 100 || !items.every((item) => validRoutineItem(routine.kind, item))) {
+    return res.status(400).json({ error: 'Choose one or more valid routine items to add.' });
+  }
   const client = await pool.connect();
+  let count = 0;
   try {
     await client.query('BEGIN');
-    for (const item of routine.items) {
-      if (routine.kind === 'tasks') {
-        await client.query('INSERT INTO tasks (user_id, task_date, period, title, points) VALUES ($1, $2, $3, $4, COALESCE($5, 10))', [req.userId, date, item.period, item.title, item.points]);
-      } else if (routine.kind === 'workouts') {
-        await client.query(
-          `INSERT INTO workouts (user_id, workout_date, activity_type, duration_minutes, notes, training_split, distance_km, steps, exercises, points)
-           VALUES ($1, $2, $3, COALESCE($4, 0), $5, $6, $7, $8, $9::jsonb, COALESCE($10, 20))`,
-          [req.userId, date, item.activity_type, item.duration_minutes, item.notes, item.training_split, item.distance_km, item.steps, JSON.stringify(item.exercises || []), item.points]
-        );
-      } else {
-        await client.query('INSERT INTO schedule_items (user_id, item_date, title, location, start_time, planned_minutes, points) VALUES ($1, $2, $3, $4, $5, COALESCE($6, 30), COALESCE($7, 10))', [req.userId, date, item.title, item.location, item.start_time, item.planned_minutes, item.points]);
-      }
+    for (const item of items) {
+      count += (await insertRoutineItem(client, req.userId, date, routine.kind, item)).rowCount;
     }
     await client.query('COMMIT');
-    res.status(201).json({ ok: true, count: routine.items.length });
+    res.status(201).json({ ok: true, count });
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -156,33 +189,7 @@ router.post('/:id/apply-week', async (req, res) => {
     for (const weekday of weekdays) {
       const date = addDays(weekStart, weekday === 0 ? 6 : weekday - 1);
       for (const item of routine.items) {
-        let query;
-        let values;
-        if (routine.kind === 'tasks') {
-          query = `INSERT INTO tasks (user_id, task_date, period, title, points)
-                   SELECT $1, $2, $3, $4, COALESCE($5, 10)
-                   WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE user_id=$1 AND task_date=$2 AND period=$3 AND title=$4)`;
-          values = [req.userId, date, item.period, item.title.trim().slice(0, 140), item.points];
-        } else if (routine.kind === 'workouts') {
-          const duration = Number(item.duration_minutes || 0);
-          query = `INSERT INTO workouts (user_id, workout_date, activity_type, duration_minutes, notes, training_split, distance_km, steps, exercises, points)
-                   SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, COALESCE($10, 20)
-                   WHERE NOT EXISTS (
-                     SELECT 1 FROM workouts
-                     WHERE user_id=$1 AND workout_date=$2 AND activity_type=$3 AND duration_minutes=$4
-                       AND training_split IS NOT DISTINCT FROM $6::text
-                       AND distance_km IS NOT DISTINCT FROM $7::numeric
-                       AND steps IS NOT DISTINCT FROM $8::integer
-                       AND exercises IS NOT DISTINCT FROM $9::jsonb
-                   )`;
-          values = [req.userId, date, item.activity_type.trim().slice(0, 80), duration, item.notes || null, item.training_split || null, item.distance_km ?? null, item.steps ?? null, JSON.stringify(item.exercises || []), item.points];
-        } else if (routine.kind === 'schedule') {
-          query = `INSERT INTO schedule_items (user_id, item_date, title, location, start_time, planned_minutes, points)
-                   SELECT $1, $2, $3, $4, $5, COALESCE($6, 30), COALESCE($7, 10)
-                   WHERE NOT EXISTS (SELECT 1 FROM schedule_items WHERE user_id=$1 AND item_date=$2 AND title=$3 AND start_time IS NOT DISTINCT FROM $5::time)`;
-          values = [req.userId, date, item.title.trim().slice(0, 140), item.location || null, item.start_time || null, item.planned_minutes, item.points];
-        } else throw new Error('This routine has an unsupported type.');
-        count += (await client.query(query, values)).rowCount;
+        count += (await insertRoutineItem(client, req.userId, date, routine.kind, item)).rowCount;
       }
     }
     await client.query('COMMIT');

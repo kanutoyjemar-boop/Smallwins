@@ -49,7 +49,7 @@ const PageTasks = (() => {
     content.innerHTML = template(date, tasks, routines, recurring);
     content.classList.remove('date-content-enter');
     requestAnimationFrame(() => content.classList.add('date-content-enter'));
-    wire(content, date, tasks, el);
+    wire(content, date, tasks, routines, el);
   }
 
   function template(date, tasks, routines, recurring = []) {
@@ -95,7 +95,7 @@ const PageTasks = (() => {
         <div class="panel-title"><h3>Reusable routines</h3><span class="count">${routines.length} saved</span></div>
         <div class="row routine-actions">
           <button class="btn btn-ghost btn-sm" id="save-task-routine" type="button" ${tasks.length ? '' : 'disabled'}>Save this day as routine</button>
-          ${routines.length ? `<select id="routine-select" aria-label="Choose a task routine"><option value="">Apply a routine…</option>${routines.map((routine) => `<option value="${routine.id}">${escapeHtml(routine.name)}</option>`).join('')}</select>` : ''}
+          ${routines.length ? `<select id="routine-select" aria-label="Choose a task routine to preview"><option value="">Preview a routine…</option>${routines.map((routine) => `<option value="${routine.id}">${escapeHtml(routine.name)}</option>`).join('')}</select>` : ''}
         </div>
         ${routines.length ? UI.routineWeekPlanner('routine-week-select', 'apply-task-week', routines) : ''}
       </div>
@@ -158,27 +158,52 @@ const PageTasks = (() => {
     `;
   }
 
-  function wire(el, date, tasks, root) {
+  function wire(el, date, tasks, routines, root) {
     const saveRoutine = el.querySelector('#save-task-routine');
     if (saveRoutine) {
       saveRoutine.addEventListener('click', async () => {
         const name = await UI.prompt('Name this routine:', 'Morning and evening tasks');
         if (!name || !name.trim()) return;
-        await Api.post('/templates', {
-          name: name.trim(),
-          kind: 'tasks',
-          items: tasks.map((task) => ({ period: task.period, title: task.title, points: task.points })),
-        });
-        render(root);
+        try {
+          await Api.post('/templates', {
+            name: name.trim(),
+            kind: 'tasks',
+            items: tasks.map((task) => ({ period: task.period, title: task.title, points: task.points })),
+          });
+          UI.toast('Task routine saved.', { kind: 'win' });
+          render(root);
+        } catch (error) {
+          UI.alert(error.message);
+        }
       });
     }
 
     const routineSelect = el.querySelector('#routine-select');
     if (routineSelect) {
       routineSelect.addEventListener('change', async () => {
-        if (!routineSelect.value) return;
-        await Api.post(`/templates/${routineSelect.value}/apply`, { date });
-        render(root);
+        const routine = routines.find((item) => String(item.id) === routineSelect.value);
+        if (!routine) return;
+        routineSelect.disabled = true;
+        try {
+          const preview = await UI.confirmRoutineApply(routine, date, tasks);
+          if (!preview) return;
+          if (!preview.additions) {
+            UI.toast('Those routine items are already planned.');
+            return;
+          }
+          const result = await Api.post(`/templates/${encodeURIComponent(routine.id)}/apply`, { date, items: preview.items });
+          if (result && result.queued) {
+            UI.toast('Routine saved offline. Its items will appear after your device syncs.', { kind: 'win' });
+          } else {
+            UI.toast(`Added ${result.count} routine ${result.count === 1 ? 'item' : 'items'}.`, { kind: 'win' });
+          }
+          render(root);
+        } catch (error) {
+          UI.alert(error.message);
+        } finally {
+          routineSelect.disabled = false;
+          routineSelect.value = '';
+        }
       });
     }
     UI.wireRoutineWeek(el, 'routine-week-select', 'apply-task-week', date, () => render(root));

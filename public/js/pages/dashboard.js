@@ -100,15 +100,17 @@ const PageDashboard = (() => {
     const hr = new Date().getHours();
     const hello = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
     const first = ((Api.getUser() || {}).name || '').split(' ')[0];
+    const onboarding = onboardingHtml(data, date);
     return `
       <div class="greeting"><h2>${hello}${first ? ', ' + escapeHtml(first) : ''}</h2><p>${pct === 100 ? 'Perfect day. Take a bow.' : pct == null ? 'Start small. Your day does not need to be perfect.' : 'One small win is enough to keep going.'}</p></div>
-      ${onboardingHtml(data, date)}
+      ${onboarding}
       ${focusCard(data, date)}
+      ${homeNextStepHtml(data, date, onboarding)}
 
       ${date === DateUtil.today() && (pendingTasks.length || pendingAgenda.length) ? `
         <button class="daily-brief-trigger" id="open-daily-brief" type="button">
-          <span class="daily-brief-icon">!</span>
-          <span><strong>${pendingTasks.length + pendingAgenda.length} things need your attention</strong><small>Open your daily brief</small></span>
+          <span class="daily-brief-icon" aria-hidden="true">✓</span>
+          <span><strong>Today’s plan · ${pendingTasks.length + pendingAgenda.length} items left</strong><small>View your tasks and agenda</small></span>
           <span class="daily-brief-arrow" aria-hidden="true">›</span>
         </button>
         ${dailyBriefModal(pendingTasks, pendingAgenda)}
@@ -213,17 +215,50 @@ const PageDashboard = (() => {
     const empty = !data.tasks.length && !data.workouts.length && !data.diet.length && !data.schedule.length;
     const userId = (Api.getUser() || {}).id;
     if (!empty || date !== DateUtil.today() || localStorage.getItem(`selfup_onboarded_${userId}`)) return '';
-    return `<div class="panel onboarding"><div class="panel-title"><h3>Welcome — choose a simple start</h3></div>
-      <p class="rating-sub" style="margin:0 0 12px">Pick one routine. You can edit or remove every item later.</p>
-      <div class="starter-row">${Object.keys(STARTERS).map((k) => `<button class="btn btn-ghost" data-starter="${k}" type="button">${k}</button>`).join('')}</div>
+    return `<div class="panel onboarding"><div class="panel-title"><h3>Welcome — start small</h3></div>
+      <p class="rating-sub" style="margin:0 0 12px">Preview a starter task plan, then edit or skip any item. These add tasks only.</p>
+      <div class="starter-row">${Object.keys(STARTERS).map((k) => `<button class="btn btn-ghost" data-starter="${k}" type="button" aria-pressed="false">${k}</button>`).join('')}</div>
+      <div id="starter-preview" class="starter-preview" aria-live="polite" hidden></div>
       <label class="onboarding-focus">Optional weekly focus
         <input type="text" maxlength="140" id="onboarding-focus" placeholder="For example: make time for movement">
       </label>
       <div class="onboarding-sample">
         <button class="btn btn-ghost btn-sm" data-sample-onboarding type="button" ${navigator.onLine ? '' : 'disabled'}>Or explore with sample entries</button>
+        <p class="meta">Sample entries affect your totals and can be removed in Settings.</p>
         <p class="form-error" id="onboarding-sample-error" aria-live="polite"></p>
       </div>
       <button class="link-btn" data-skip-onboarding type="button">I’ll set up my own</button></div>`;
+  }
+
+  function homeNextStepHtml(data, date, onboarding) {
+    const today = DateUtil.today();
+    const empty = !data.tasks.length && !data.workouts.length && !data.diet.length && !data.schedule.length;
+    if (date !== today || !empty || onboarding) return '';
+    return `<section class="panel home-next-step" aria-labelledby="home-next-step-title">
+      <h3 id="home-next-step-title">Not sure where to start?</h3>
+      <p>One small task is plenty. You can build the rest of your day later.</p>
+      <a class="btn btn-primary btn-sm" href="#/tasks">Add one task</a>
+    </section>`;
+  }
+
+  function renderStarterPreview(el, key) {
+    const items = STARTERS[key];
+    const preview = el.querySelector('#starter-preview');
+    if (!items || !preview) return;
+    preview.hidden = false;
+    preview.innerHTML = `
+      <p class="meta">Adjust the names or untick anything you don’t want.</p>
+      <div class="starter-preview-items">${items.map(([period, title], index) => `
+        <label class="starter-preview-item">
+          <input type="checkbox" data-starter-include="${index}" checked>
+          <span>${period === 'AM' ? 'Morning' : 'Evening'}</span>
+          <input type="text" data-starter-title="${index}" value="${escapeHtml(title)}" maxlength="140" aria-label="Edit ${escapeHtml(title)}">
+        </label>`).join('')}</div>
+      <button class="btn btn-primary btn-sm" data-starter-use type="button">Add selected tasks</button>
+    `;
+    el.querySelectorAll('[data-starter]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.starter === key));
+    });
   }
 
   function stripHtml(strip, date, todayPct) {
@@ -254,6 +289,7 @@ const PageDashboard = (() => {
 
   function upcomingEventsHtml(events, today) {
     const items = Array.isArray(events) ? events : [];
+    if (!items.length) return '';
     return `
       <section class="panel upcoming-agenda" aria-labelledby="upcoming-agenda-title">
         <div class="panel-title">
@@ -333,21 +369,48 @@ const PageDashboard = (() => {
         AppState.date = eventLink.dataset.upcomingDate;
       });
     });
-    el.querySelectorAll('[data-starter]').forEach((b) => b.addEventListener('click', async () => {
-      b.disabled = true;
+    el.querySelectorAll('[data-starter]').forEach((button) => button.addEventListener('click', () => {
+      renderStarterPreview(el, button.dataset.starter);
+    }));
+    el.querySelector('#starter-preview')?.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-starter-use]');
+      if (!button) return;
+      const starterKey = el.querySelector('[data-starter][aria-pressed="true"]')?.dataset.starter;
+      const items = STARTERS[starterKey] || [];
+      const selected = items.flatMap(([period, , points], index) => {
+        const include = el.querySelector(`[data-starter-include="${index}"]`);
+        const title = el.querySelector(`[data-starter-title="${index}"]`)?.value.trim();
+        return include?.checked && title ? [{ period, title, points }] : [];
+      });
+      if (!selected.length) {
+        UI.alert('Keep or add at least one task to get started.');
+        return;
+      }
+      button.disabled = true;
+      button.textContent = 'Adding tasks…';
+      let added = 0;
       try {
-        for (const [period, title, points] of STARTERS[b.dataset.starter]) {
-          await Api.post('/tasks', { task_date: DateUtil.today(), period, title, points });
+        for (const item of selected) {
+          await Api.post('/tasks', { task_date: DateUtil.today(), ...item });
+          added += 1;
         }
         await saveOnboardingFocus(el);
         localStorage.setItem(onboardingKey, '1');
         UI.toast('Your starting plan is ready. Adjust it any time.', { kind: 'win' });
         render(root);
       } catch (error) {
-        UI.alert(error.message);
-        b.disabled = false;
+        if (added) {
+          UI.toast(added === selected.length
+            ? 'Tasks were added, but the optional weekly focus could not be saved.'
+            : `Added ${added} task${added === 1 ? '' : 's'}; the rest could not be saved. Review today’s tasks.`);
+          render(root);
+        } else {
+          UI.alert(error.message);
+          button.disabled = false;
+          button.textContent = 'Add selected tasks';
+        }
       }
-    }));
+    });
     el.querySelector('[data-sample-onboarding]')?.addEventListener('click', async (event) => {
       const button = event.currentTarget;
       const error = el.querySelector('#onboarding-sample-error');
@@ -437,7 +500,6 @@ const PageDashboard = (() => {
       dailyBrief.classList.remove('is-open');
       dailyBrief.setAttribute('aria-hidden', 'true');
       document.removeEventListener('keydown', briefKeyHandler);
-      localStorage.setItem(`selfup_daily_brief_${AppState.date}`, '1');
       if (openBrief && openBrief.isConnected) openBrief.focus();
     };
     const showBrief = () => {
@@ -451,7 +513,6 @@ const PageDashboard = (() => {
     if (dailyBrief) {
       dailyBrief.querySelectorAll('[data-close-brief]').forEach((button) => button.addEventListener('click', closeBrief));
       dailyBrief.addEventListener('click', (event) => { if (event.target === dailyBrief) closeBrief(); });
-      if (!localStorage.getItem(`selfup_daily_brief_${AppState.date}`)) setTimeout(showBrief, 450);
     }
     const preview = el.querySelector('#share-preview');
     let previewRender = 0;
@@ -557,8 +618,8 @@ const PageDashboard = (() => {
         <div class="daily-brief-modal">
           <button class="daily-brief-close" type="button" data-close-brief aria-label="Close daily brief">×</button>
           <span class="eyebrow">DAILY BRIEF</span>
-          <h2 id="daily-brief-title">Make today count.</h2>
-          <p class="rating-sub">Here is what still needs your attention.</p>
+          <h2 id="daily-brief-title">Here’s your plan for today.</h2>
+          <p class="rating-sub">Your remaining tasks and agenda items.</p>
           <div class="brief-list">
             ${tasks.slice(0, 5).map((task) => `<a href="#/tasks" class="brief-item" data-close-brief><span class="brief-dot task-dot"></span><span><strong>${escapeHtml(task.title)}</strong><small>${task.period} task</small></span><span aria-hidden="true">›</span></a>`).join('')}
             ${agenda.slice(0, 5).map((item) => `<a href="#/schedule" class="brief-item" data-close-brief><span class="brief-dot agenda-dot"></span><span><strong>${escapeHtml(item.title)}</strong><small>${item.start_time ? formatBriefTime(item.start_time) : 'Agenda item'}${item.location ? ` · ${escapeHtml(item.location)}` : ''}</small></span><span aria-hidden="true">›</span></a>`).join('')}
