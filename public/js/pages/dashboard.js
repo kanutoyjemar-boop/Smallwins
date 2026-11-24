@@ -49,8 +49,8 @@ const PageDashboard = (() => {
         <button data-nav="1" type="button" aria-label="Next day">›</button>
       </div>
       <div class="selected-day-actions" aria-label="Plan for ${DateUtil.label(date)}">
-        <a class="btn btn-ghost btn-sm" href="#/tasks">Add tasks for ${DateUtil.label(date)}</a>
-        <a class="btn btn-ghost btn-sm" href="#/schedule">Plan agenda for ${DateUtil.label(date)}</a>
+        <a class="btn btn-ghost btn-sm" href="#/tasks">+ Task</a>
+        <a class="btn btn-ghost btn-sm" href="#/schedule">+ Agenda</a>
       </div>`;
     const weekStrip = controls.querySelector('.week-strip');
     if (weekStrip) requestAnimationFrame(() => weekStrip.classList.add('week-strip-enter'));
@@ -101,7 +101,7 @@ const PageDashboard = (() => {
     const hello = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
     const first = ((Api.getUser() || {}).name || '').split(' ')[0];
     return `
-      <div class="greeting"><h2>${hello}${first ? ', ' + escapeHtml(first) : ''}</h2><p>${pct === 100 ? 'Perfect day. Take a bow.' : pct == null ? 'Plan your day to start scoring.' : 'Every check-off moves the ring.'}</p></div>
+      <div class="greeting"><h2>${hello}${first ? ', ' + escapeHtml(first) : ''}</h2><p>${pct === 100 ? 'Perfect day. Take a bow.' : pct == null ? 'Start small. Your day does not need to be perfect.' : 'One small win is enough to keep going.'}</p></div>
       ${onboardingHtml(data, date)}
       ${focusCard(data, date)}
 
@@ -112,14 +112,6 @@ const PageDashboard = (() => {
           <span class="daily-brief-arrow" aria-hidden="true">›</span>
         </button>
         ${dailyBriefModal(pendingTasks, pendingAgenda)}
-      ` : ''}
-      ${upcomingEventsHtml(data.upcomingEvents, DateUtil.today())}
-
-      ${data.motivation ? `
-        <div class="panel motivation-banner">
-          ${data.streak ? `<span class="streak-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c2.5 2.7 4 4.7 4 7.2A4.5 4.5 0 0 1 7.5 15c0-2.5 1.5-4.5 4.5-7.5Z"/><path d="M10.5 14.3c.6 1.4 1.8 2.2 3.2 2.7"/></svg>${data.streak}</span>` : ''}
-          <p>${escapeHtml(data.motivation)}</p>
-        </div>
       ` : ''}
       ${pushNudgeHtml()}
 
@@ -141,6 +133,10 @@ const PageDashboard = (() => {
       ${pendingTasks.length ? `<div class="panel up-next"><div class="panel-title"><h3>Up next</h3><a href="#/tasks" class="count">All tasks ›</a></div>
         ${pendingTasks.slice(0, 3).map((t) => `<div class="list-item"><button class="checkbox" data-quick="${t.id}" aria-label="Complete ${escapeHtml(t.title)}"></button><div class="grow"><div class="title">${escapeHtml(t.title)}</div></div><span class="pts-chip">+${t.points}</span></div>`).join('')}</div>` : ''}
 
+      ${upcomingEventsHtml(data.upcomingEvents, DateUtil.today())}
+
+      <details class="dashboard-secondary">
+        <summary>More details</summary>
       ${recapHtml(strip)}
       <div class="halfday-row">
         ${halfCard('AM', s.am)}
@@ -149,7 +145,7 @@ const PageDashboard = (() => {
 
       ${localStorage.getItem('selfup_sharing_enabled') !== 'false' ? `<div class="panel share-panel">
         <div class="panel-title"><h3>Your progress, beautifully told</h3><span class="share-private-note">You choose what to share</span></div>
-        <p class="rating-sub share-intro">A ready-to-post recap, sized for Stories or feed posts. It includes your username and profile picture, score, completion counts, streak, and last-7-day bars. Task names, email, budget, and private focus never do.</p>
+        <p class="rating-sub share-intro">Create a clean progress image for Stories or your feed.</p>
         <div class="share-format" role="group" aria-label="Card size">
           <button type="button" class="btn btn-sm ${getCardFormat() === 'story' ? 'btn-primary' : 'btn-ghost'}" data-card-format="story">Story 9:16</button>
           <button type="button" class="btn btn-sm ${getCardFormat() === 'feed' ? 'btn-primary' : 'btn-ghost'}" data-card-format="feed">Post 4:5</button>
@@ -168,7 +164,7 @@ const PageDashboard = (() => {
           <button class="btn btn-ghost btn-sm" id="download-achievement" type="button">Save image</button>
           <button class="btn btn-ghost btn-sm" id="download-achievement-pdf" type="button">Save as PDF</button>
         </div>
-        <p class="share-platform-note">Your username and profile picture appear on the card. On mobile, “Share card” opens your device’s share sheet. For Stories, save the image, add it in Instagram or Facebook, and attach a link sticker with your caption link. “Save as PDF” opens the print dialog, where you can choose Save as PDF.</p>
+        <p class="share-platform-note">Only your chosen username, profile picture, score, counts, streak, and 7-day bars are included.</p>
       </div>` : ''}
 
       <div class="section-label">${DateUtil.label(date)} at a glance</div>
@@ -190,6 +186,7 @@ const PageDashboard = (() => {
           <div class="sc-value">${agendaDone}/${data.schedule.length} items</div>
         </a>
       </div>
+      </details>
     `;
   }
 
@@ -216,15 +213,14 @@ const PageDashboard = (() => {
     const empty = !data.tasks.length && !data.workouts.length && !data.diet.length && !data.schedule.length;
     const userId = (Api.getUser() || {}).id;
     if (!empty || date !== DateUtil.today() || localStorage.getItem(`selfup_onboarded_${userId}`)) return '';
-    return `<div class="panel onboarding"><div class="panel-title"><h3>Start with a routine</h3></div>
-      <p class="rating-sub" style="margin:0 0 12px">Keep it manageable. Choose a small start or a routine; everything can be changed later.</p>
+    return `<div class="panel onboarding"><div class="panel-title"><h3>Welcome — choose a simple start</h3></div>
+      <p class="rating-sub" style="margin:0 0 12px">Pick one routine. You can edit or remove every item later.</p>
       <div class="starter-row">${Object.keys(STARTERS).map((k) => `<button class="btn btn-ghost" data-starter="${k}" type="button">${k}</button>`).join('')}</div>
-      <label class="onboarding-focus">What would you like to focus on this week?
+      <label class="onboarding-focus">Optional weekly focus
         <input type="text" maxlength="140" id="onboarding-focus" placeholder="For example: make time for movement">
       </label>
       <div class="onboarding-sample">
-        <p class="rating-sub" style="margin:12px 0 8px">Just looking around? Load a few example entries so you can see how scores, goals, and money totals work. They’re clearly labelled “Sample” and you can remove them any time in Settings.</p>
-        <button class="btn btn-ghost btn-sm" data-sample-onboarding type="button" ${navigator.onLine ? '' : 'disabled'}>Explore with sample entries</button>
+        <button class="btn btn-ghost btn-sm" data-sample-onboarding type="button" ${navigator.onLine ? '' : 'disabled'}>Or explore with sample entries</button>
         <p class="form-error" id="onboarding-sample-error" aria-live="polite"></p>
       </div>
       <button class="link-btn" data-skip-onboarding type="button">I’ll set up my own</button></div>`;

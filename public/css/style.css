@@ -819,6 +819,43 @@ body { font-feature-settings: "tnum"; }
 .onboarding-focus { display: grid; gap: 6px; margin-top: 12px; color: var(--text-muted); font-size: 13px; }
 .link-btn { background: none; border: 0; color: var(--text-muted); font-size: 12.5px; margin-top: 10px; cursor: pointer; text-decoration: underline; }
 .score-context { margin: -4px 4px 14px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.dashboard-secondary {
+  margin: 0 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.dashboard-secondary > summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.dashboard-secondary > summary::-webkit-details-marker { display: none; }
+.dashboard-secondary > summary::after {
+  content: "+";
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+.dashboard-secondary[open] > summary::after { content: "−"; }
+.dashboard-secondary > .recap,
+.dashboard-secondary > .halfday-row,
+.dashboard-secondary > .share-panel,
+.dashboard-secondary > .section-label,
+.dashboard-secondary > .stat-grid {
+  margin: 0 10px 10px;
+}
+.dashboard-secondary > summary + .recap { margin-top: 0; }
+.dashboard-secondary > .section-label { margin-top: 4px; }
+.dashboard-secondary > .stat-grid { margin-bottom: 10px; }
 .score-breakdown { margin: -4px 4px 14px; color: var(--text-muted); font-size: 12px; }
 .score-breakdown summary { cursor: pointer; color: var(--text); font-weight: 650; }
 .score-breakdown ul { display: grid; gap: 6px; padding: 0; margin: 8px 0 0; list-style: none; }
