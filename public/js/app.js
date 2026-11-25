@@ -424,9 +424,15 @@ const routes = {
 };
 
 let routeToken = 0;
+let renderedPath = null;
 function renderRoute() {
-  if (!Api.getToken()) return showAuth();
+  if (!Api.getToken()) {
+    renderedPath = null;
+    return showAuth();
+  }
   const path = (window.location.hash || '#/').slice(1) || '/';
+  const routeChanged = path !== renderedPath;
+  renderedPath = path;
   const content = document.getElementById('content');
 
   document.querySelectorAll('.nav-item').forEach((a) => {
@@ -443,7 +449,9 @@ function renderRoute() {
   }
   const token = ++routeToken;
   // Keep the old page on screen (dimmed) while the next one loads; show a skeleton only on first load.
-  if (content.children.length) content.classList.add('is-leaving');
+  if (content.children.length) {
+    if (routeChanged) content.classList.add('is-leaving');
+  }
   else content.setRaw('<div class="skeleton"></div><div class="skeleton short"></div><div class="skeleton"></div>');
   Promise.resolve(renderer(content)).catch((err) => {
     if (token !== routeToken) return;

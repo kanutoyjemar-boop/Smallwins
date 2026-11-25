@@ -232,13 +232,15 @@ const UI = (() => {
   function quickAdd() {
     const previousFocus = document.activeElement;
     const date = AppState.date;
-    const m = $(`<div class="modal-backdrop sheet"><div class="modal" role="dialog" aria-modal="true" aria-label="Quick add" tabindex="-1">
-      <div class="seg"><button class="on" data-k="task">Task</button><button data-k="exp">Expense</button></div>
-      <form id="qa-task"><input id="qa-title" placeholder="What needs doing?" maxlength="140" required>
-        <div class="row"><select id="qa-period"><option value="AM">Morning</option><option value="PM">Afternoon / evening</option></select><input id="qa-pts" type="number" value="10" min="1" max="100"></div>
+    const m = $(`<div class="modal-backdrop sheet"><div class="modal quick-add-modal" role="dialog" aria-modal="true" aria-labelledby="quick-add-title" aria-describedby="quick-add-date" tabindex="-1">
+      <div class="quick-add-heading"><div><h3 id="quick-add-title">Quick add</h3><p class="meta" id="quick-add-date">For ${escapeHtml(DateUtil.label(date))}</p></div><button type="button" class="icon-btn" data-quick-add-close aria-label="Close quick add">×</button></div>
+      <div class="seg" role="group" aria-label="Choose what to add"><button type="button" class="on" data-k="task" aria-pressed="true">Task</button><button type="button" data-k="exp" aria-pressed="false">Expense</button></div>
+      <form id="qa-task" class="quick-add-form"><label for="qa-title">Task name</label><input id="qa-title" placeholder="e.g., Take a short walk" maxlength="140" required>
+        <label for="qa-period">When?</label><select id="qa-period"><option value="AM">Morning</option><option value="PM">Afternoon / evening</option></select>
+        <label for="qa-pts">Points (10 by default)</label><input id="qa-pts" type="number" value="10" min="1" max="100">
         <button class="btn btn-primary btn-block">Add task</button></form>
-      <form id="qa-exp" class="hidden"><input id="qa-etitle" placeholder="What did you spend on?" required>
-        <input id="qa-amt" type="number" step="0.01" min="0" placeholder="Amount (₱)" required>
+      <form id="qa-exp" class="quick-add-form hidden"><label for="qa-etitle">What was the expense?</label><input id="qa-etitle" placeholder="e.g., Lunch" required>
+        <label for="qa-amt">Amount (₱)</label><input id="qa-amt" type="number" step="0.01" min="0" placeholder="0.00" required>
         <button class="btn btn-primary btn-block">Log expense</button></form></div></div>`);
     document.body.appendChild(m);
     requestAnimationFrame(() => m.classList.add('open'));
@@ -262,8 +264,12 @@ const UI = (() => {
     };
     document.addEventListener('keydown', onKeydown);
     m.addEventListener('click', (e) => { if (e.target === m) close(); });
+    m.querySelector('[data-quick-add-close]').addEventListener('click', close);
     m.querySelectorAll('.seg button').forEach((b) => b.onclick = () => {
-      m.querySelectorAll('.seg button').forEach((x) => x.classList.toggle('on', x === b));
+      m.querySelectorAll('.seg button').forEach((x) => {
+        x.classList.toggle('on', x === b);
+        x.setAttribute('aria-pressed', String(x === b));
+      });
       m.querySelector('#qa-task').classList.toggle('hidden', b.dataset.k !== 'task');
       m.querySelector('#qa-exp').classList.toggle('hidden', b.dataset.k !== 'exp');
       m.querySelector(b.dataset.k === 'task' ? '#qa-title' : '#qa-etitle').focus();

@@ -2,7 +2,7 @@ const PageMoney = (() => {
   const CATEGORIES = ['Food', 'Transport', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Salary', 'Freelance', 'Other'];
   let range = 'month';
   const ICON = { Food: '🍽️', Transport: '🚌', Bills: '🧾', Shopping: '🛍️', Health: '💊', Entertainment: '🎬', Salary: '💼', Freelance: '💻', Other: '📦' };
-  const icon = (c) => ICON[c] || ICONOther;
+  const icon = (c) => ICON[c] || ICON.Other;
 
   async function render(el) {
     const date = AppState.date;

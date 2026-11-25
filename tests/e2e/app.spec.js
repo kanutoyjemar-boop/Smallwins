@@ -171,6 +171,96 @@ test('dashboard shows daily priorities and prioritizes every upcoming event', as
   await expect(page.locator('#schedule-date')).toHaveValue(nearDate);
 });
 
+test('quick add clearly labels task and expense fields and saves them', async ({ page }) => {
+  const suffix = crypto.randomUUID();
+  const email = `quick-add-${suffix}@example.test`;
+  testEmails.add(email);
+  await setUniqueClientIp(page.context());
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Create one' }).click();
+  await page.locator('#signup-name').fill('Quick add test');
+  await page.locator('#signup-email').fill(email);
+  await page.locator('#signup-password').fill('quick-add-test-password-long-enough');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('#main-screen')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Quick add' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Quick add' });
+  await expect(dialog).toContainText(`For ${await page.evaluate(() => DateUtil.label(AppState.date))}`);
+  await expect(dialog.getByLabel('Task name')).toBeVisible();
+  await expect(dialog.getByLabel('When?')).toHaveValue('AM');
+  await expect(dialog.getByLabel('Points (10 by default)')).toHaveValue('10');
+  await dialog.getByRole('button', { name: 'Close quick add' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  const taskName = `Quick task ${suffix}`;
+  await page.getByRole('button', { name: 'Quick add' }).click();
+  await page.getByLabel('Task name').fill(taskName);
+  await page.getByRole('button', { name: 'Add task' }).click();
+  await page.locator('.nav-item[href="#/tasks"]').click();
+  await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
+
+  const expenseName = `Quick expense ${suffix}`;
+  await page.getByRole('button', { name: 'Quick add' }).click();
+  const expenseTab = page.getByRole('button', { name: 'Expense', exact: true });
+  await expenseTab.click();
+  await expect(expenseTab).toHaveAttribute('aria-pressed', 'true');
+  await page.getByLabel('What was the expense?').fill(expenseName);
+  await page.getByLabel('Amount (₱)').fill('125');
+  await page.getByRole('button', { name: 'Log expense' }).click();
+  await page.locator('.nav-item[href="#/money"]').click();
+  await expect(page.locator('.list-item .title').filter({ hasText: expenseName })).toBeVisible();
+});
+
+test('refreshing the current page does not replay its route animation', async ({ page }) => {
+  const email = `motion-${crypto.randomUUID()}@example.test`;
+  testEmails.add(email);
+  await setUniqueClientIp(page.context());
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Create one' }).click();
+  await page.locator('#signup-name').fill('Motion test');
+  await page.locator('#signup-email').fill(email);
+  await page.locator('#signup-password').fill('motion-test-password-long-enough');
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.locator('.dashboard-date-controls .greeting h2')).toBeVisible();
+  await expect(page.locator('#content')).not.toHaveClass(/route-enter/);
+
+  const replayedRouteAnimation = await page.evaluate(() => new Promise((resolve) => {
+    const content = document.getElementById('content');
+    let replayed = false;
+    const observer = new MutationObserver((records) => {
+      if (content.classList.contains('route-enter')) replayed = true;
+      if (records.some((record) => record.type === 'childList')) {
+        observer.disconnect();
+        resolve(replayed);
+      }
+    });
+    observer.observe(content, { attributes: true, attributeFilter: ['class'], childList: true });
+    window.renderRoute();
+    setTimeout(() => {
+      observer.disconnect();
+      resolve(replayed);
+    }, 3000);
+  }));
+  expect(replayedRouteAnimation).toBe(false);
+});
+
+test('reduced-motion preference limits animations to one brief pass', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  const motion = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.className = 'skeleton';
+    document.body.appendChild(probe);
+    const styles = getComputedStyle(probe);
+    const result = { duration: styles.animationDuration, iterations: styles.animationIterationCount };
+    probe.remove();
+    return result;
+  });
+  expect(Number.parseFloat(motion.duration)).toBeLessThan(0.001);
+  expect(motion.iterations).toBe('1');
+});
+
 test('new user can sign up, add a task, and keep it after reload', async ({ page }) => {
   const suffix = crypto.randomUUID();
   const email = `browser-${suffix}@example.test`;
