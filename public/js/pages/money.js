@@ -46,7 +46,7 @@ const PageMoney = (() => {
         <div class="score-ring" style="background:conic-gradient(var(--nodata) 0 100%)"><div class="ring-num"><span class="pct">—</span></div></div>
         <div>
           <p class="hero-amount" style="font-size:20px">Set a daily limit</p>
-          <p class="rating-sub" style="margin:2px 0 8px">Stay under it to earn points.</p>
+          <p class="rating-sub" style="margin:2px 0 8px">Use a limit as a guide for today’s spending, not a judgment.</p>
           <button class="btn btn-primary btn-sm" type="button" data-focus-budget>Set limit</button>
         </div>
       </div>`;
@@ -197,7 +197,7 @@ const PageMoney = (() => {
                   <small>${label}</small>
                 </div>
               `;
-            }).join('') || '<p class="empty-state">No activity in this period yet.</p>'}
+            }).join('') || '<p class="empty-state">No entries recorded for this period yet. Add them whenever you want a clearer picture.</p>'}
           </div>
         </div>
 
@@ -214,7 +214,7 @@ const PageMoney = (() => {
               </div>
               <span class="pts-chip" style="color:var(--needs-work)">₱${formatMoney(cat.total)}</span>
             </div>
-          `).join('') : '<p class="empty-state">No spending categories yet.</p>'}
+          `).join('') : '<p class="empty-state">Your categories will appear here as you log transactions.</p>'}
         </div>
 
         <div class="panel panel-accent" style="--accent:var(--money)">
@@ -222,7 +222,7 @@ const PageMoney = (() => {
             <h3>Transactions</h3>
             <span class="count">${expenses.length} entries</span>
           </div>
-          ${expenses.length ? expenses.map(expenseRow).join('') : '<p class="empty-state">Nothing logged yet.</p>'}
+          ${expenses.length ? expenses.map(expenseRow).join('') : '<p class="empty-state">No transactions recorded for this day. Add an entry whenever it’s useful.</p>'}
           <form class="add-form" id="expense-form">
             <div class="row">
               <input type="text" id="exp-title" placeholder="What was it?" required maxlength="140">

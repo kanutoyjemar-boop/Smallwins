@@ -285,7 +285,7 @@ const UI = (() => {
   const origPatch = Api.patch;
   Api.patch = async (path, body) => {
     const r = await origPatch(path, body);
-    if (body && (body.done === true || body.eaten === true || body.status === 'done')) { celebrate('Nice — keep going'); window.refreshXp && refreshXp(); }
+    if (body && (body.done === true || body.eaten === true || body.status === 'done')) { celebrate('Nice work—small wins add up. This one counts.'); window.refreshXp && refreshXp(); }
     return r;
   };
 

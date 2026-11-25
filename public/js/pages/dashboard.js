@@ -2,6 +2,10 @@ const PageDashboard = (() => {
   let renderVersion = 0;
   let dateControlsVersion = 0;
 
+  function ratingDisplayLabel(rating) {
+    return rating === 'Room to Adjust' ? 'Growing' : rating;
+  }
+
   async function render(el) {
     if (!el.querySelector('.dashboard-page')) {
       el.innerHTML = `
@@ -48,7 +52,7 @@ const PageDashboard = (() => {
     controls.innerHTML = `<section class="greeting">
         <span class="eyebrow">SMALL WINS · DAILY CHECK-IN</span>
         <h2>${hello}${first ? ', ' + escapeHtml(first) : ''}</h2>
-        <p>Progress over perfection. Start with one small win.</p>
+        <p>Small steps add up over time. Today’s win counts at any size.</p>
       </section>
       ${stripHtml(strip, date, selectedDay && selectedDay.percentage)}
       <div class="date-nav">
@@ -114,7 +118,7 @@ const PageDashboard = (() => {
       ${date === DateUtil.today() && (pendingTasks.length || pendingAgenda.length) ? `
         <button class="daily-brief-trigger" id="open-daily-brief" type="button">
           <span class="daily-brief-icon" aria-hidden="true">✓</span>
-          <span><strong>Today’s plan · ${pendingTasks.length + pendingAgenda.length} items left</strong><small>View your tasks and agenda</small></span>
+          <span><strong>Today’s plan · ${pendingTasks.length + pendingAgenda.length} planned</strong><small>Take a look whenever you’re ready</small></span>
           <span class="daily-brief-arrow" aria-hidden="true">›</span>
         </button>
         ${dailyBriefModal(pendingTasks, pendingAgenda)}
@@ -129,11 +133,11 @@ const PageDashboard = (() => {
           </div>
         </div>
         <div>
-          <p class="rating-label" style="color:${color}">${s.rating}</p>
+          <p class="rating-label" style="color:${color}">${pct == null ? 'A fresh start' : ratingDisplayLabel(s.rating)}</p>
           <p class="rating-sub">${pct == null ? `Nothing planned yet for ${DateUtil.label(date).toLowerCase()}.` : `${s.earned} of ${s.possible} points earned`}</p>
         </div>
       </div>
-      <p class="score-context">A score is information, not a judgment. Rest days with nothing planned stay unscored.</p>
+      <p class="score-context">A score is information, not a judgment. Rest days with nothing planned stay unscored. Small steps can grow into meaningful change—at your pace.</p>
       ${scoreBreakdown(s, date)}
 
       <div class="section-label">${DateUtil.label(date)} at a glance</div>
@@ -208,7 +212,7 @@ const PageDashboard = (() => {
       <div class="panel-title"><h3>This week’s focus</h3><a href="#/goals" class="count">Review week ›</a></div>
       <p class="dashboard-focus-text">${escapeHtml(data.weeklyFocus)}</p>
       <button class="btn ${data.weeklyFocusChecked ? 'btn-ghost' : 'btn-primary'} btn-sm" id="focus-checkin" type="button" aria-pressed="${data.weeklyFocusChecked}" ${future ? 'disabled' : ''}>
-        ${future ? 'Check in when this day arrives' : data.weeklyFocusChecked ? `Progress noted${date === DateUtil.today() ? ' today' : ''} ✓` : `I made progress on ${date === DateUtil.today() ? 'this today' : 'this day'}`}
+        ${future ? 'Check in when this day arrives' : data.weeklyFocusChecked ? `Progress noted${date === DateUtil.today() ? ' today' : ''} ✓` : `I made some progress${date === DateUtil.today() ? ' today' : ' that day'}`}
       </button>
     </div>`;
   }
@@ -279,7 +283,7 @@ const PageDashboard = (() => {
       const dt = new Date(d.date + 'T00:00:00');
       return `<button type="button" class="ws-day ${d.date === date ? 'sel' : ''}" data-goto="${d.date}" aria-label="${DateUtil.label(d.date)}: ${d.percentage == null ? 'no data' : d.percentage + '%'}">
         <span>${dt.toLocaleDateString(undefined, { weekday: 'narrow' })}</span><i style="background:${color(d.percentage)}">${d.percentage == null ? '' : ''}</i><small>${d.percentage == null ? '–' : d.percentage}</small></button>`;
-    }).join('')}</div>${risk ? '<p class="ws-risk">If it would help, take one small step before the day ends.</p>' : ''}</div>`;
+    }).join('')}</div>${risk ? '<p class="ws-risk">Today can be a rest day, too. If you feel like it, there’s still room for one small win.</p>' : ''}</div>`;
   }
 
   function recapHtml(strip) {
@@ -333,7 +337,7 @@ const PageDashboard = (() => {
     if (typeof Push === 'undefined' || !Push.supported() || Push.permission() !== 'default') return '';
     return `
       <div class="panel push-nudge">
-        <p>Turn on reminders and Small Wins will nudge your phone in the morning, in the evening, and if your streak's at risk.</p>
+        <p>Optional reminders can offer a gentle nudge to start or reflect on your day. Your progress matters whether or not you keep a streak.</p>
         <div class="row">
           <button class="btn btn-primary btn-sm" id="nudge-enable" type="button">Enable notifications</button>
           <button class="btn btn-ghost btn-sm" id="nudge-dismiss" type="button">Not now</button>
@@ -713,7 +717,7 @@ const PageDashboard = (() => {
       kicker: hasScore ? 'DAILY PROGRESS' : 'YOUR NEXT WIN STARTS HERE',
       hook: pickHook(hasScore ? data.summary.percentage : null, date),
       score: hasScore ? String(data.summary.percentage) : null,
-      rating: hasScore ? data.summary.rating : 'A fresh start is still progress.',
+      rating: hasScore ? ratingDisplayLabel(data.summary.rating) : 'A fresh start is still progress.',
       date: DateUtil.label(date),
       username: username.trim() || 'Small Wins member',
       avatar: typeof extras.avatar === 'string' ? extras.avatar : '',
@@ -745,7 +749,7 @@ const PageDashboard = (() => {
     const stats = buildShareStats(data)
       .map((metric) => `${metric.done}/${metric.total} ${metric.label.toLowerCase()}`)
       .join(' · ');
-    const progress = score == null ? 'A fresh start is still progress.' : `My Small Wins score: ${score}% (${data.summary.rating}).`;
+    const progress = score == null ? 'A fresh start is still progress.' : `My Small Wins score: ${score}% (${ratingDisplayLabel(data.summary.rating)}).`;
     const details = stats ? ` ${stats}.` : '';
     const streak = date === DateUtil.today() && data.streak >= 2 ? ` ${data.streak}-day streak.` : '';
     const opener = CAPTION_OPENERS[dateSeed(date) % CAPTION_OPENERS.length];

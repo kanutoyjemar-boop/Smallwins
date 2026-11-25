@@ -95,7 +95,7 @@ const PageBody = (() => {
     const sportSessions = workouts.filter((w) => /pickleball|tennis|basketball|football|soccer|volleyball|hiking|martial/i.test(w.activity_type)).length;
 
     el.innerHTML = `
-      ${heroRing(done, workouts.length, totalMinutes + ' min', workouts.length ? done + ' of ' + workouts.length + ' sessions done' : 'Nothing planned yet', 'Movement today')}
+      ${heroRing(done, workouts.length, totalMinutes + ' min', workouts.length ? done + ' of ' + workouts.length + ' sessions done' : 'Rest is part of progress', 'Movement today')}
       <div class="panel panel-accent body-summary-panel" style="--accent:var(--body)">
         <div class="panel-title"><h3>Movement summary</h3><span class="count">${done}/${workouts.length} complete</span></div>
         <div class="body-summary-grid">
@@ -129,7 +129,7 @@ const PageBody = (() => {
       <div class="panel panel-accent" style="--accent:var(--body)">
         <div class="panel-title"><h3>Today's activity</h3><span class="count">${done}/${workouts.length}</span></div>
         ${!workouts.length ? `<button class="btn btn-ghost btn-block" id="copy-workouts" type="button" style="margin-bottom:12px">Copy yesterday's workouts</button>` : ''}
-        ${workouts.length ? workouts.map(workoutRow).join('') : '<p class="empty-state">No workouts planned.</p>'}
+        ${workouts.length ? workouts.map(workoutRow).join('') : '<p class="empty-state">Nothing planned here yet. Rest is part of progress; add movement only if it feels right.</p>'}
         <form class="add-form" id="workout-form">
           <div class="row">
             <select id="w-type" aria-label="Activity type">
@@ -322,7 +322,7 @@ const PageBody = (() => {
         copyWorkoutsBtn.textContent = 'Copying…';
         const yesterday = DateUtil.addDays(date, -1);
         const prev = await Api.get(`/workouts?date=${yesterday}`);
-        if (!prev.length) UI.alert("Yesterday didn't have any workouts to copy.");
+        if (!prev.length) UI.toast("Yesterday's list was clear, too. Rest is part of progress.");
         for (const w of prev) {
           await Api.post('/workouts', { workout_date: date, activity_type: w.activity_type, duration_minutes: w.duration_minutes, notes: w.notes, training_split: w.training_split, distance_km: w.distance_km, steps: w.steps, exercises: w.exercises || [], points: w.points });
         }
@@ -379,7 +379,7 @@ const PageBody = (() => {
     const kcal = consumed.reduce((sum, d) => sum + Number(d.calories || 0), 0);
     const protein = consumed.reduce((sum, d) => sum + Number(d.protein_grams || 0), 0);
     el.innerHTML = `
-      ${heroRing(eaten, entries.length, protein.toFixed(1) + ' g protein', entries.length ? eaten + ' of ' + entries.length + ' meals eaten' : 'No meals planned yet', 'Fuel today')}
+      ${heroRing(eaten, entries.length, protein.toFixed(1) + ' g protein', entries.length ? eaten + ' of ' + entries.length + ' meals logged' : 'Track only what feels useful', 'Fuel today')}
       <div class="panel panel-accent body-summary-panel" style="--accent:var(--body)">
         <div class="panel-title"><h3>Today's intake</h3></div>
         <div class="body-summary-grid">
@@ -390,7 +390,7 @@ const PageBody = (() => {
       <div class="panel panel-accent" style="--accent:var(--body)">
         <div class="panel-title"><h3>Meal plan</h3><span class="count">${eaten}/${entries.length}</span></div>
         ${!entries.length ? `<button class="btn btn-ghost btn-block" id="copy-diet" type="button" style="margin-bottom:12px">Copy yesterday's meal plan</button>` : ''}
-        ${entries.length ? entries.map(dietRow).join('') : '<p class="empty-state">Nothing planned to eat yet.</p>'}
+        ${entries.length ? entries.map(dietRow).join('') : '<p class="empty-state">Nothing logged here yet. Track a meal only if it’s useful to you.</p>'}
         <form class="add-form" id="diet-form">
           <div class="row">
             <select id="d-meal">${MEALS.map((m) => `<option>${m}</option>`).join('')}</select>
@@ -472,7 +472,7 @@ const PageBody = (() => {
         copyDietBtn.textContent = 'Copying…';
         const yesterday = DateUtil.addDays(date, -1);
         const prev = await Api.get(`/diet?date=${yesterday}`);
-        if (!prev.length) UI.alert("Yesterday didn't have a meal plan to copy.");
+        if (!prev.length) UI.toast("There was no meal plan to copy from yesterday. You can add something whenever it helps.");
         for (const d of prev) {
           await Api.post('/diet', { entry_date: date, meal_label: d.meal_label, food: d.food, calories: d.calories, protein_grams: d.protein_grams, points: d.points });
         }

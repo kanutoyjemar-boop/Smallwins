@@ -88,7 +88,7 @@ const PageTasks = (() => {
         <div class="task-progress">
           <div class="task-progress-bar" style="width:${progress}%"></div>
         </div>
-        <div class="summary-footnote">${pointsPossible ? `${pointsEarned} of ${pointsPossible} points earned for ${DateUtil.label(date)}` : `No tasks planned for ${DateUtil.label(date)}`}</div>
+        <div class="summary-footnote">${pointsPossible ? `${pointsEarned} of ${pointsPossible} points earned for ${DateUtil.label(date)}` : `A clear day for ${DateUtil.label(date)}. Add a task only if it would help.`}</div>
       </div>
 
       <div class="panel routine-panel">
@@ -129,7 +129,7 @@ const PageTasks = (() => {
           <span class="count">${done}/${list.length}</span>
         </div>
         <div class="mini-progress-track"><div class="mini-progress-fill" style="width:${percent}%; background:${accent}"></div></div>
-        ${list.length ? list.map((t) => taskRow(t)).join('') : '<p class="empty-state">No tasks yet.</p>'}
+        ${list.length ? list.map((t) => taskRow(t)).join('') : '<p class="empty-state">Nothing planned here yet. Add a task if it would make your day easier.</p>'}
         <form class="add-form" data-add="${period}">
           <div class="row">
             <input type="text" placeholder="Add a ${period === 'AM' ? 'morning' : 'afternoon'} task…" required maxlength="140">
@@ -252,7 +252,7 @@ const PageTasks = (() => {
           const yesterday = DateUtil.addDays(date, -1);
           const prevTasks = await Api.get(`/tasks?date=${yesterday}`);
           if (!prevTasks.length) {
-            UI.alert("Yesterday didn't have any tasks to copy.");
+            UI.toast("Yesterday's list was clear, too. You can start fresh whenever you're ready.");
           } else {
             for (const t of prevTasks) {
               await Api.post('/tasks', { task_date: date, period: t.period, title: t.title, points: t.points });

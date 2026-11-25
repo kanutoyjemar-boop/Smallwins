@@ -140,6 +140,8 @@ test('dashboard shows daily priorities and prioritizes every upcoming event', as
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.locator('#main-screen')).toBeVisible();
   await expect(page.locator('.dashboard-date-controls .greeting h2')).toBeVisible();
+  await expect(page.locator('.dashboard-date-controls .greeting p')).toContainText('Small steps add up over time');
+  await expect(page.locator('.score-hero .rating-label')).toHaveText('A fresh start');
   const dailyStats = page.locator('.dashboard-date-content .stat-grid');
   await expect(dailyStats).toBeVisible();
   await expect(dailyStats.locator('.stat-card')).toHaveCount(4);

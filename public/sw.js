@@ -1,7 +1,7 @@
 // Offline app shell + background-sync wake-up for Small Wins.
 // Private API data lives in IndexedDB (see api.js); this worker only caches app files.
 
-const CACHE = 'selfup-v33';
+const CACHE = 'selfup-v34';
 const SHELL = ['/', '/index.html', '/manifest.json', '/privacy.html',
   '/css/style.css', '/vendor/chart.umd.js',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-192.png', '/icons/maskable-512.png',

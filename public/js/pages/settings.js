@@ -70,15 +70,16 @@ const PageSettings = (() => {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c2.3 2.8 3.8 4.8 3.8 7.1A4.1 4.1 0 0 1 7.7 14c0-2.4 1.5-4.4 4.3-7.1Z"/><path d="M10.8 14.8c.7 1.7 2.1 2.7 3.9 3.3"/></svg>
           </div>
           <div>
-            <div class="streak-num">${totals.streak}-day streak</div>
-            <div class="rating-sub">Best: ${totals.bestStreak} days · ${totals.excellentDays} Excellent days logged</div>
+            <div class="streak-num">${totals.streak ? `${totals.streak}-day streak` : 'Ready when you are'}</div>
+            <div class="rating-sub">Best: ${totals.bestStreak} days · ${totals.excellentDays} strong days logged</div>
           </div>
         </div>
+        <p class="meta">A streak is one way to notice a habit, never a measure of your worth. A pause is part of life; it doesn’t erase the progress or badges you’ve earned.</p>
         ${(totals.milestones || []).length ? `
           <div class="badge-grid">
             ${totals.milestones.map((m) => `<div class="badge-chip" title="Earned ${escapeHtml(formatMilestoneDate(m.achieved_at))}"><span>${m.icon}</span>${escapeHtml(m.label)}</div>`).join('')}
           </div>
-        ` : '<p class="rating-sub" style="margin-top:10px">Keep logging days to start earning badges.</p>'}
+        ` : '<p class="rating-sub" style="margin-top:10px">Badges celebrate moments along the way. Take your time—your progress matters without them, too.</p>'}
       </div>
 
       ${(totals.milestones || []).length ? `
@@ -146,10 +147,11 @@ const PageSettings = (() => {
           <div class="reminder-row">
             <label class="toggle-row">
               <input type="checkbox" id="streak-enabled" ${s.streak_enabled ? 'checked' : ''}>
-              <span class="reminder-switch"><span class="status-icon" style="color:var(--needs-work)"><svg viewBox="0 0 24 24"><path d="M12 3.5c2.3 2.8 3.8 4.8 3.8 7.1A4.1 4.1 0 0 1 7.7 14c0-2.4 1.5-4.4 4.3-7.1Z"/><path d="M10.8 14.8c.7 1.7 2.1 2.7 3.9 3.3"/></svg></span>Streak-at-risk alert</span>
+              <span class="reminder-switch"><span class="status-icon" style="color:var(--agenda)"><svg viewBox="0 0 24 24"><path d="M12 3.5c2.3 2.8 3.8 4.8 3.8 7.1A4.1 4.1 0 0 1 7.7 14c0-2.4 1.5-4.4 4.3-7.1Z"/><path d="M10.8 14.8c.7 1.7 2.1 2.7 3.9 3.3"/></svg></span>Gentle evening check-in</span>
             </label>
             <input type="time" id="streak-time" value="${s.streak_time}">
           </div>
+          <p class="meta">A quiet reminder to choose one small win—or leave space to rest. Your progress is more than a streak.</p>
 
           <div class="section-label">Agenda reminder (optional)</div>
           <p class="meta">Both reminders use your timezone and require browser notifications. The advance reminder lists pending events on the selected future date.</p>
@@ -238,7 +240,7 @@ const PageSettings = (() => {
 
       <div class="section-label">Personal scoring</div>
       <div class="panel">
-        <p class="rating-sub" style="margin:0 0 12px">Choose how much each area contributes to your daily score. Your choices recalculate past scores and streaks; milestones already earned stay in your history. At least one area must be included.</p>
+        <p class="rating-sub" style="margin:0 0 12px">Choose how much each area contributes to your daily score. Treat it as a guide, not a grade; you can leave areas out. Changes recalculate past scores and streaks, while earned milestones stay in your history. At least one area must be included.</p>
         <form id="scoring-form">
           ${scoringAreas.map(([key, label]) => `
             <label class="scoring-preference-row">${label}

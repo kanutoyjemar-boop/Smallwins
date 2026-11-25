@@ -23,10 +23,10 @@ const PageGoals = (() => {
     const reflection = insights.reflection || null;
     const comparison = weekly.activeDays && previous.activeDays
       ? `${weekly.average - previous.average > 0 ? '+' : ''}${weekly.average - previous.average} pts`
-      : 'Not enough data';
+      : '—';
     const weeklySummaryText = weekly.activeDays
-      ? `This week has ${weekly.activeDays} scored day${weekly.activeDays === 1 ? '' : 's'}, averaging ${weekly.average}%. ${previous.activeDays ? `Last week averaged ${previous.average}%.` : 'There are no scored days to compare from last week.'}`
-      : `No scored days yet this week. ${previous.activeDays ? `Last week averaged ${previous.average}%.` : 'When you’re ready, start with one small plan.'}`;
+      ? `You had a plan on ${weekly.activeDays} day${weekly.activeDays === 1 ? '' : 's'} this week, averaging ${weekly.average}%. This is a snapshot, not a grade. ${previous.activeDays ? `Last week’s snapshot was ${previous.average}%.` : ''}`
+      : `No scored days yet this week. Rest and open space count, too. ${previous.activeDays ? `Last week’s snapshot was ${previous.average}%.` : 'When you’re ready, choose one small plan.'}`;
 
     return `
       <div class="date-nav">
@@ -39,11 +39,11 @@ const PageGoals = (() => {
         <div class="section-label" style="margin-top:0">Weekly momentum</div>
         <div class="stat-grid">
           <div class="stat-card" style="--accent:var(--tasks)">
-            <div class="sc-label">Scored / planned days</div>
+            <div class="sc-label">Days with a plan</div>
             <div class="sc-value">${weekly.activeDays}/${7 - (insights.restDays || []).length}</div>
           </div>
           <div class="stat-card" style="--accent:var(--money)">
-            <div class="sc-label">Avg score</div>
+            <div class="sc-label">Average progress</div>
             <div class="sc-value">${weekly.activeDays ? `${weekly.average}%` : '—'}</div>
           </div>
           <div class="stat-card" style="--accent:var(--body)">
@@ -51,7 +51,7 @@ const PageGoals = (() => {
             <div class="sc-value">${weekly.bestDay ? DateUtil.label(weekly.bestDay) : '—'}</div>
           </div>
           <div class="stat-card" style="--accent:var(--agenda)">
-            <div class="sc-label">Consistency</div>
+            <div class="sc-label">Days with activity</div>
             <div class="sc-value">${weekly.completionRate}%</div>
           </div>
           <div class="stat-card" style="--accent:var(--tasks)">
@@ -64,6 +64,7 @@ const PageGoals = (() => {
       <div class="panel weekly-review-panel">
         <div class="section-label" style="margin-top:0">Weekly review</div>
         <p class="rating-sub" style="margin:0 0 10px">${escapeHtml(weeklySummaryText)}</p>
+        <p class="meta">Small steps can compound into meaningful change. There’s no required percentage or perfect pace—choose what feels sustainable.</p>
         ${weeklyActivityHtml(insights.activity)}
         <div class="review-highlight">
           <span>Change from last week</span>
@@ -180,7 +181,7 @@ const PageGoals = (() => {
     const planned = rows.reduce((total, [, count]) => total + Number(count || 0), 0);
     const completed = rows.reduce((total, [, , count]) => total + Number(count || 0), 0);
     return `<div class="weekly-activity">
-      <div class="review-highlight"><span>Planned items completed</span><strong>${completed}/${planned}</strong></div>
+      <div class="review-highlight"><span>Progress on planned items</span><strong>${completed}/${planned}</strong></div>
       <div class="weekly-activity-grid">${rows.map(([label, count, done]) => `
         <div><span>${label}</span><strong>${Number(done || 0)}/${Number(count || 0)}</strong></div>`).join('')}
       </div>
@@ -194,8 +195,8 @@ const PageGoals = (() => {
     ].sort((a, b) => a.date.localeCompare(b.date) || a.detail.localeCompare(b.detail));
     if (!items.length) return '';
     return `<div class="panel">
-      <div class="section-label" style="margin-top:0">Unfinished items</div>
-      <p class="meta">Move an item to a new date if it still matters; otherwise, leave it behind.</p>
+      <div class="section-label" style="margin-top:0">Plans to revisit</div>
+      <p class="meta">Plans can change. Move anything that still matters to another day; no need to catch up all at once.</p>
       ${items.map((item) => `<div class="list-item weekly-carryover">
         <div class="grow"><div class="title">${escapeHtml(item.title)}</div><div class="meta">${escapeHtml(item.detail)} · ${escapeHtml(DateUtil.label(item.date))}</div></div>
         <label class="sr-only" for="move-${item.kind}-${item.id}">New date for ${escapeHtml(item.title)}</label>

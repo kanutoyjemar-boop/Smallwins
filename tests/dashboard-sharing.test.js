@@ -55,6 +55,10 @@ test('share card uses Small Wins branding, developer credit, and clear no-score 
   assert.equal(scored.mark, 'SW');
   assert.equal(scored.score, '82.5');
   assert.equal(scored.rating, 'Great');
+  const growing = buildAchievementCardContent(dashboardData({
+    summary: { percentage: 40, rating: 'Room to Adjust' },
+  }), '2026-11-10');
+  assert.equal(growing.rating, 'Growing');
   assert.equal(scored.date, 'Tuesday, November 10');
   assert.equal(scored.username, '@alex_1');
   assert.equal(scored.avatar, 'data:image/jpeg;base64,ZmFrZQ==');

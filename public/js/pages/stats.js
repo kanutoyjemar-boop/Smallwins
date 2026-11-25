@@ -49,7 +49,7 @@ const PageStats = (() => {
         ${ratingCell('Excellent', counts.Excellent, 'var(--excellent)')}
         ${ratingCell('Great', counts.Great, 'var(--great)')}
         ${ratingCell('Fair', counts.Fair, 'var(--fair)')}
-        ${ratingCell('Room to Adjust', counts['Room to Adjust'], 'var(--fair)')}
+        ${ratingCell('Growing', counts['Room to Adjust'], 'var(--fair)')}
       </div>
 
       <div class="section-label">Trend by module</div>

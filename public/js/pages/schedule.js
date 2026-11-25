@@ -76,7 +76,7 @@ const PageSchedule = (() => {
           </div>
         </div>
         ${!items.length ? `<button class="btn btn-ghost btn-block" id="copy-schedule" type="button" style="margin-bottom:12px">Copy yesterday's agenda</button>` : ''}
-        ${items.length ? items.map((item) => itemRow(item, availability.conflictingIds)).join('') : '<p class="empty-state">Nothing on the agenda.</p>'}
+        ${items.length ? items.map((item) => itemRow(item, availability.conflictingIds)).join('') : '<p class="empty-state">Your day has some open space. Add anything you want to remember.</p>'}
         <form class="add-form" id="sched-form">
           <input type="text" id="s-title" placeholder="Where should you be / what are you doing?" aria-label="Agenda item title" required maxlength="140">
           <div class="row">
@@ -306,7 +306,7 @@ const PageSchedule = (() => {
         copyScheduleBtn.textContent = 'Copying…';
         const yesterday = DateUtil.addDays(date, -1);
         const prev = await Api.get(`/schedule?date=${yesterday}`);
-        if (!prev.length) UI.alert("Yesterday didn't have an agenda to copy.");
+        if (!prev.length) UI.toast("Yesterday's agenda was clear, too. Keep this space open or plan something new.");
         for (const it of prev) {
           await Api.post('/schedule', {
             item_date: date, title: it.title, location: it.location,
@@ -445,7 +445,7 @@ const PageSchedule = (() => {
   }
 
   function itemRow(it, conflictingIds = new Set()) {
-    const statusColor = { done: 'var(--excellent)', overtime: 'var(--fair)', skipped: 'var(--needs-work)', pending: 'var(--text-muted)' }[it.status];
+    const statusColor = { done: 'var(--excellent)', overtime: 'var(--fair)', skipped: 'var(--text-muted)', pending: 'var(--text-muted)' }[it.status];
     const availability = it.start_time ? (it.status === 'done' || it.status === 'overtime' ? 'Booked' : 'Busy block') : 'Open slot';
     return `
       <div class="list-item agenda-item">
@@ -463,7 +463,7 @@ const PageSchedule = (() => {
           <option value="pending" ${it.status === 'pending' ? 'selected' : ''}>Pending</option>
           <option value="done" ${it.status === 'done' ? 'selected' : ''}>Done on time</option>
           <option value="overtime" ${it.status === 'overtime' ? 'selected' : ''}>Ran over</option>
-          <option value="skipped" ${it.status === 'skipped' ? 'selected' : ''}>Skipped</option>
+          <option value="skipped" ${it.status === 'skipped' ? 'selected' : ''}>Not today</option>
         </select>
         <button class="icon-x" data-del="${it.id}" aria-label="Delete agenda item: ${escapeHtml(it.title)}">✕</button>
       </div>

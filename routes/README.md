@@ -12,7 +12,7 @@ number: how disciplined today actually was.
 | **Money** | Set a daily spending limit, log expenses/income. Staying under budget earns points. |
 | **Body** (Workouts + Diet) | Log gym/walk/run/pickleball/etc. with duration, and a meal plan (Breakfast/Lunch/Dinner/Snack) you check off as you eat it. |
 | **Agenda** | Time-boxed schedule items with a location and a planned duration, viewable as Today / Tomorrow / +2 / +3 days. Mark each "Done on time," "Ran over," or "Skipped." |
-| **Dashboard** | The home screen: one score ring for the day (0–100%), a rating (**Excellent / Great / Fair / Needs Work**), and a quick-glance grid of every module. |
+| **Dashboard** | The home screen: one score ring for the day (0–100%), a rating (**Excellent / Great / Fair / Growing**), and a quick-glance grid of every module. The score is a guide, not a judgment. |
 | **Stats** | Monthly line chart of your daily score, a calendar heat grid, and counts of how many Excellent/Great/Fair/Needs-Work days you've had. |
 | **Settings** | Streaks, badges, phone push-notification reminders, a light/dark theme toggle, editable name/email, a change-password form, and a one-click export of everything you've logged as a JSON file. |
 

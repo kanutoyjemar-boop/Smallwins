@@ -817,7 +817,7 @@ body { font-feature-settings: "tnum"; }
 .ws-day span { font-size: 11px; font-weight: 600; } .ws-day small { font-size: 10px; }
 .ws-day i { width: 22px; height: 22px; border-radius: 50%; display: block; box-shadow: 0 0 0 0 transparent; transition: transform .15s var(--ease); }
 .ws-day.sel { background: var(--surface-2); color: var(--text); } .ws-day.sel i { transform: scale(1.15); box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 18%, transparent); }
-.ws-risk { margin: 8px 8px 0; font-size: 12.5px; color: var(--needs-work); font-weight: 600; }
+.ws-risk { margin: 8px 8px 0; font-size: 12.5px; color: var(--text-muted); font-weight: 600; }
 .recap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .recap-grid > div { background: var(--surface-2); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
 .recap-grid strong { font-family: var(--font-head); font-size: 22px; } .recap-grid span { font-size: 11.5px; color: var(--text-muted); }
