@@ -42,7 +42,15 @@ const PageDashboard = (() => {
 
   function renderDateControls(controls, strip, date, el) {
     const selectedDay = strip && strip.days && strip.days.find((day) => day.date === date);
-    controls.innerHTML = `${stripHtml(strip, date, selectedDay && selectedDay.percentage)}
+    const hour = new Date().getHours();
+    const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+    const first = ((Api.getUser() || {}).name || '').split(' ')[0];
+    controls.innerHTML = `<section class="greeting">
+        <span class="eyebrow">SMALL WINS · DAILY CHECK-IN</span>
+        <h2>${hello}${first ? ', ' + escapeHtml(first) : ''}</h2>
+        <p>Progress over perfection. Start with one small win.</p>
+      </section>
+      ${stripHtml(strip, date, selectedDay && selectedDay.percentage)}
       <div class="date-nav">
         <button data-nav="-1" type="button" aria-label="Previous day">‹</button>
         <div class="date-label">${DateUtil.label(date)}</div>
@@ -97,12 +105,8 @@ const PageDashboard = (() => {
     const shareStats = buildShareStats(data);
     const shareName = profile.username ? `@${profile.username}` : (((Api.getUser() || {}).name || '').trim() || 'Small Wins member');
 
-    const hr = new Date().getHours();
-    const hello = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-    const first = ((Api.getUser() || {}).name || '').split(' ')[0];
     const onboarding = onboardingHtml(data, date);
     return `
-      <div class="greeting"><h2>${hello}${first ? ', ' + escapeHtml(first) : ''}</h2><p>${pct === 100 ? 'Perfect day. Take a bow.' : pct == null ? 'Start small. Your day does not need to be perfect.' : 'One small win is enough to keep going.'}</p></div>
       ${onboarding}
       ${focusCard(data, date)}
       ${homeNextStepHtml(data, date, onboarding)}
@@ -131,6 +135,30 @@ const PageDashboard = (() => {
       </div>
       <p class="score-context">A score is information, not a judgment. Rest days with nothing planned stay unscored.</p>
       ${scoreBreakdown(s, date)}
+
+      <div class="section-label">${DateUtil.label(date)} at a glance</div>
+      <div class="stat-grid">
+        <a class="stat-card" href="#/tasks" style="--accent:var(--tasks)">
+          <div class="sc-label">Tasks</div>
+          <div class="sc-value">${data.tasks.filter((task) => task.done).length}/${data.tasks.length} complete</div>
+          <div class="sc-note">${pendingTasks.length ? `${pendingTasks.length} left to do` : data.tasks.length ? 'All caught up' : 'Add a small win'}</div>
+        </a>
+        <a class="stat-card" href="#/money" style="--accent:var(--money)">
+          <div class="sc-label">Money spent</div>
+          <div class="sc-value">₱${data.totalSpent.toFixed(0)}${data.budget ? ` / ₱${Number(data.budget.daily_limit).toFixed(0)}` : ''}</div>
+          <div class="sc-note">${data.budget ? 'of your daily budget' : 'Track today’s spending'}</div>
+        </a>
+        <a class="stat-card" href="#/body" style="--accent:var(--body)">
+          <div class="sc-label">Body &amp; meals</div>
+          <div class="sc-value">${workoutsDone}/${data.workouts.length} workouts</div>
+          <div class="sc-note">${dietEaten}/${data.diet.length} meals logged</div>
+        </a>
+        <a class="stat-card" href="#/schedule" style="--accent:var(--agenda)">
+          <div class="sc-label">Agenda</div>
+          <div class="sc-value">${agendaDone}/${data.schedule.length} complete</div>
+          <div class="sc-note">${pendingAgenda.length ? `${pendingAgenda.length} still ahead` : data.schedule.length ? 'You’re all set' : 'Plan what matters'}</div>
+        </a>
+      </div>
 
       ${pendingTasks.length ? `<div class="panel up-next"><div class="panel-title"><h3>Up next</h3><a href="#/tasks" class="count">All tasks ›</a></div>
         ${pendingTasks.slice(0, 3).map((t) => `<div class="list-item"><button class="checkbox" data-quick="${t.id}" aria-label="Complete ${escapeHtml(t.title)}"></button><div class="grow"><div class="title">${escapeHtml(t.title)}</div></div><span class="pts-chip">+${t.points}</span></div>`).join('')}</div>` : ''}
@@ -169,25 +197,6 @@ const PageDashboard = (() => {
         <p class="share-platform-note">Only your chosen username, profile picture, score, counts, streak, and 7-day bars are included.</p>
       </div>` : ''}
 
-      <div class="section-label">${DateUtil.label(date)} at a glance</div>
-      <div class="stat-grid">
-        <a class="stat-card" href="#/money" style="--accent:var(--money)">
-          <div class="sc-label">Money spent</div>
-          <div class="sc-value">₱${data.totalSpent.toFixed(0)}${data.budget ? ` / ₱${Number(data.budget.daily_limit).toFixed(0)}` : ''}</div>
-        </a>
-        <a class="stat-card" href="#/body" style="--accent:var(--body)">
-          <div class="sc-label">Workouts</div>
-          <div class="sc-value">${workoutsDone}/${data.workouts.length} done</div>
-        </a>
-        <a class="stat-card" href="#/body" style="--accent:var(--body)">
-          <div class="sc-label">Diet</div>
-          <div class="sc-value">${dietEaten}/${data.diet.length} meals</div>
-        </a>
-        <a class="stat-card" href="#/schedule" style="--accent:var(--agenda)">
-          <div class="sc-label">Agenda</div>
-          <div class="sc-value">${agendaDone}/${data.schedule.length} items</div>
-        </a>
-      </div>
       </details>
     `;
   }

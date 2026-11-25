@@ -127,7 +127,7 @@ test('advance agenda reminders can be configured from Settings', async ({ page }
   expect(settings.agenda_advance_time).toBe('19:15');
 });
 
-test('dashboard prioritizes every upcoming event by its nearest date and time', async ({ page }) => {
+test('dashboard shows daily priorities and prioritizes every upcoming event', async ({ page }) => {
   const suffix = crypto.randomUUID();
   const email = `upcoming-${suffix}@example.test`;
   testEmails.add(email);
@@ -139,6 +139,14 @@ test('dashboard prioritizes every upcoming event by its nearest date and time', 
   await page.locator('#signup-password').fill('upcoming-test-password-long-enough');
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page.locator('#main-screen')).toBeVisible();
+  await expect(page.locator('.dashboard-date-controls .greeting h2')).toBeVisible();
+  const dailyStats = page.locator('.dashboard-date-content .stat-grid');
+  await expect(dailyStats).toBeVisible();
+  await expect(dailyStats.locator('.stat-card')).toHaveCount(4);
+  await expect(dailyStats).toContainText('Tasks');
+  await expect(dailyStats).toContainText('Money spent');
+  await expect(dailyStats).toContainText('Body & meals');
+  await expect(dailyStats).toContainText('Agenda');
 
   const { nearDate, farDate } = await page.evaluate(() => ({
     nearDate: DateUtil.addDays(DateUtil.today(), 1),
