@@ -5,6 +5,43 @@ const UI = (() => {
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const haptic = (p = 12) => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 
+  function cleanSuggestions(values) {
+    return [...new Set((values || [])
+      .filter((value) => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter(Boolean))].slice(0, 10);
+  }
+
+  function renderSuggestionButtons(inputId, label, options) {
+    if (!options.length) return '';
+    return `<div class="input-suggestions" role="group" aria-label="${escapeHtml(label)} suggestions">
+        <span>Ideas - or type your own:</span>
+        ${options.slice(0, 3).map((value) => `<button type="button" data-suggestion-for="${escapeHtml(inputId)}" data-suggestion-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join('')}
+      </div>`;
+  }
+
+  function suggestionButtons(inputId, label, values) {
+    return renderSuggestionButtons(inputId, label, cleanSuggestions(values));
+  }
+
+  function suggestions(inputId, label, values) {
+    const options = cleanSuggestions(values);
+    if (!options.length) return '';
+    const listId = `suggestions-${inputId}`;
+    return `<datalist id="${escapeHtml(listId)}">${options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('')}</datalist>
+      ${renderSuggestionButtons(inputId, label, options)}`;
+  }
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-suggestion-for]');
+    if (!button) return;
+    const input = document.getElementById(button.dataset.suggestionFor);
+    if (!input || input.disabled) return;
+    input.value = button.dataset.suggestionValue;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.focus();
+  });
+
   function toast(msg, { kind = 'info', undo, ms = 3200 } = {}) {
     let host = document.getElementById('toasts');
     if (!host) { host = $('<div id="toasts" aria-live="polite"></div>'); document.body.appendChild(host); }
@@ -235,11 +272,14 @@ const UI = (() => {
     const m = $(`<div class="modal-backdrop sheet"><div class="modal quick-add-modal" role="dialog" aria-modal="true" aria-labelledby="quick-add-title" aria-describedby="quick-add-date" tabindex="-1">
       <div class="quick-add-heading"><div><h3 id="quick-add-title">Quick add</h3><p class="meta" id="quick-add-date">For ${escapeHtml(DateUtil.label(date))}</p></div><button type="button" class="icon-btn" data-quick-add-close aria-label="Close quick add">×</button></div>
       <div class="seg" role="group" aria-label="Choose what to add"><button type="button" class="on" data-k="task" aria-pressed="true">Task</button><button type="button" data-k="exp" aria-pressed="false">Expense</button></div>
-      <form id="qa-task" class="quick-add-form"><label for="qa-title">Task name</label><input id="qa-title" placeholder="e.g., Take a short walk" maxlength="140" required>
+      <form id="qa-task" class="quick-add-form"><label for="qa-title">Task name</label><input id="qa-title" list="suggestions-qa-title" placeholder="e.g., Take a short walk" maxlength="140" required>
+        ${suggestions('qa-title', 'Task name', ['Drink a glass of water', 'Take a short walk', 'Read for 10 minutes'])}
         <label for="qa-period">When?</label><select id="qa-period"><option value="AM">Morning</option><option value="PM">Afternoon / evening</option></select>
         <label for="qa-pts">Points (10 by default)</label><input id="qa-pts" type="number" value="10" min="1" max="100">
+        <small class="meta">Points affect how much this task contributes to your daily progress score. Keep 10 if you’re unsure.</small>
         <button class="btn btn-primary btn-block">Add task</button></form>
-      <form id="qa-exp" class="quick-add-form hidden"><label for="qa-etitle">What was the expense?</label><input id="qa-etitle" placeholder="e.g., Lunch" required>
+      <form id="qa-exp" class="quick-add-form hidden"><label for="qa-etitle">What was the expense?</label><input id="qa-etitle" list="suggestions-qa-etitle" placeholder="e.g., Lunch" required>
+        ${suggestions('qa-etitle', 'Expense name', ['Coffee', 'Groceries', 'Public transport'])}
         <label for="qa-amt">Amount (₱)</label><input id="qa-amt" type="number" step="0.01" min="0" placeholder="0.00" required>
         <button class="btn btn-primary btn-block">Log expense</button></form></div></div>`);
     document.body.appendChild(m);
@@ -453,7 +493,7 @@ const UI = (() => {
     });
   }
 
-  return { movePill, toast, prompt, passwordPrompt, confirm, confirmRoutineApply, alert, confetti, countUp, celebrate, haptic, quickAdd, routineWeekPlanner, wireRoutineWeek, queueReview };
+  return { movePill, toast, prompt, passwordPrompt, confirm, confirmRoutineApply, alert, confetti, countUp, celebrate, haptic, quickAdd, routineWeekPlanner, wireRoutineWeek, queueReview, suggestions, suggestionButtons };
 })();
 window.addEventListener('offline', () => UI.toast('You’re offline — supported changes are saved on this device until they can sync.', { ms: 5000 }));
 window.addEventListener('online', () => UI.toast('Back online', { kind: 'win' }));

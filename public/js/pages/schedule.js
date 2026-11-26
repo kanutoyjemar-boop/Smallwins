@@ -12,6 +12,18 @@ const PageSchedule = (() => {
     if (version !== renderVersion) return;
     const items = weekItems.filter((item) => String(item.item_date).slice(0, 10) === date);
     const availability = buildAvailabilitySummary(items);
+    const agendaSuggestions = [
+      ...weekItems.map((item) => item.title),
+      'Work shift',
+      'Appointment',
+      'Study session',
+    ];
+    const locationSuggestions = [
+      ...weekItems.map((item) => item.location),
+      'Home',
+      'Work',
+      'School',
+    ];
 
     el.innerHTML = `
       <div class="schedule-week-controls">
@@ -78,11 +90,13 @@ const PageSchedule = (() => {
         ${!items.length ? `<button class="btn btn-ghost btn-block" id="copy-schedule" type="button" style="margin-bottom:12px">Copy yesterday's agenda</button>` : ''}
         ${items.length ? items.map((item) => itemRow(item, availability.conflictingIds)).join('') : '<p class="empty-state">Your day has some open space. Add anything you want to remember.</p>'}
         <form class="add-form" id="sched-form">
-          <input type="text" id="s-title" placeholder="Where should you be / what are you doing?" aria-label="Agenda item title" required maxlength="140">
+          <input type="text" id="s-title" list="suggestions-s-title" placeholder="What are you doing?" aria-label="Agenda item title" required maxlength="140">
+          ${UI.suggestions('s-title', 'Agenda item', agendaSuggestions)}
           <div class="row">
-            <input type="text" id="s-location" placeholder="Location (optional)" aria-label="Location (optional)">
+            <input type="text" id="s-location" list="suggestions-s-location" placeholder="Location (optional)" aria-label="Location (optional)">
             <input type="time" id="s-time" aria-label="Start time">
           </div>
+          ${UI.suggestions('s-location', 'Location', locationSuggestions)}
           <div class="row">
             <input type="number" id="s-duration" placeholder="Planned minutes" aria-label="Planned minutes" min="1" value="30">
             <button type="submit" class="btn btn-primary btn-sm" style="flex:0 0 auto">Add</button>

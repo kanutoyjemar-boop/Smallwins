@@ -33,6 +33,25 @@ const PageMoney = (() => {
 
     const daySpent = expenses.filter((e) => e.kind === 'expense').reduce((sum, e) => sum + Number(e.amount), 0);
     const ringColor = overBudget ? 'var(--needs-work)' : pct > 80 ? 'var(--fair)' : 'var(--money)';
+    const transactionSuggestions = [
+      ...expenses.map((expense) => expense.title),
+      ...(cashflow.bills || []).map((bill) => bill.title),
+      'Coffee',
+      'Groceries',
+      'Public transport',
+    ];
+    const billSuggestions = [
+      ...(cashflow.bills || []).map((bill) => bill.title),
+      'Rent',
+      'Electricity',
+      'Internet',
+    ];
+    const incomeSuggestions = [
+      ...expenses.filter((entry) => entry.kind === 'income').map((entry) => entry.title),
+      'Freelance work',
+      'Extra shift',
+      'Sold an item',
+    ];
     const heroHtml = limit ? `
       <div class="panel money-hero">
         <div class="score-ring animated" data-pct="${pct}" style="--c:${ringColor}; --p:0"><div class="ring-num"><span class="pct">${pct}</span><span class="pct-sym">%</span></div></div>
@@ -66,6 +85,7 @@ const PageMoney = (() => {
           <h3>Monthly allowance</h3>
           <span class="count">${DateUtil.label(monthKey)}</span>
         </div>
+        <p class="meta">Your estimate of money available this month. This guide carries forward until you change it.</p>
         ${allowance == null ? `
           <p class="cashflow-notice">No monthly allowance set yet. You can still log expenses and income; add an allowance to see how much you have left.</p>
         ` : `
@@ -86,7 +106,6 @@ const PageMoney = (() => {
             <button type="submit" class="btn btn-primary btn-sm" style="flex:0 0 auto">${allowance == null ? 'Set allowance' : 'Update'}</button>
           </div>
         </form>
-        <p class="meta">Your allowance carries forward each month until you change it.</p>
       </div>
 
       ${monthlyReviewHtml(cashflow, allowance, monthIncome)}
@@ -122,6 +141,7 @@ const PageMoney = (() => {
             <h3>Spending guard</h3>
             <span class="count">${limit ? `Budget: ₱${formatMoney(limit)}` : 'No budget set'}</span>
           </div>
+          <p class="meta">A daily spending guide. It does not change your monthly allowance or stop you from logging a purchase.</p>
           <form class="add-form" id="budget-form">
             <div class="row">
               <input type="number" id="budget-input" placeholder="Set budget for today" min="0" step="0.01" value="${limit ?? ''}">
@@ -144,12 +164,13 @@ const PageMoney = (() => {
           <form class="add-form" id="bill-form">
             <input type="hidden" id="bill-id">
             <div class="row">
-              <input type="text" id="bill-title" placeholder="Bill name (e.g. Wi-Fi)" required maxlength="140">
-              <input type="number" id="bill-amount" placeholder="₱ amount" min="0.01" max="9999999999.99" step="0.01" required>
+              <input type="text" id="bill-title" list="suggestions-bill-title" placeholder="Bill name (e.g. Wi-Fi)" aria-label="Bill name" required maxlength="140">
+              <input type="number" id="bill-amount" placeholder="₱ amount" aria-label="Bill amount in Philippine pesos" min="0.01" max="9999999999.99" step="0.01" required>
             </div>
+            ${UI.suggestions('bill-title', 'Bill name', billSuggestions)}
             <div class="row">
-              <input type="number" id="bill-due-day" placeholder="Due day (1–31)" min="1" max="31" step="1" required>
-              <select id="bill-category">${CATEGORIES.filter((category) => !['Salary', 'Freelance'].includes(category)).map((category) => `<option ${category === 'Bills' ? 'selected' : ''}>${category}</option>`).join('')}</select>
+              <input type="number" id="bill-due-day" placeholder="Due day (1–31)" aria-label="Day of the month the bill is due" min="1" max="31" step="1" required>
+              <select id="bill-category" aria-label="Bill category">${CATEGORIES.filter((category) => !['Salary', 'Freelance'].includes(category)).map((category) => `<option ${category === 'Bills' ? 'selected' : ''}>${category}</option>`).join('')}</select>
             </div>
             <div class="row">
               <select id="bill-status" aria-label="Bill status">
@@ -168,9 +189,10 @@ const PageMoney = (() => {
           <p class="rating-sub" style="margin:0 0 10px">Log a one-time earning on the day you receive it. It adds to that month’s available cash.</p>
           <form class="add-form" id="side-income-form">
             <div class="row">
-              <input type="text" id="side-income-title" placeholder="What did you earn from?" required maxlength="140">
-              <input type="number" id="side-income-amount" placeholder="₱ amount" min="0.01" max="9999999999.99" step="0.01" required>
+              <input type="text" id="side-income-title" list="suggestions-side-income-title" placeholder="What did you earn from?" aria-label="Income source" required maxlength="140">
+              <input type="number" id="side-income-amount" placeholder="₱ amount" aria-label="Income amount in Philippine pesos" min="0.01" max="9999999999.99" step="0.01" required>
             </div>
+            ${UI.suggestions('side-income-title', 'Income source', incomeSuggestions)}
             <div class="row">
               <input type="date" id="side-income-date" value="${date}" required aria-label="Earning date">
               <button type="submit" class="btn btn-primary btn-sm" style="flex:0 0 auto">Add earning</button>
@@ -225,12 +247,13 @@ const PageMoney = (() => {
           ${expenses.length ? expenses.map(expenseRow).join('') : '<p class="empty-state">No transactions recorded for this day. Add an entry whenever it’s useful.</p>'}
           <form class="add-form" id="expense-form">
             <div class="row">
-              <input type="text" id="exp-title" placeholder="What was it?" required maxlength="140">
-              <input type="number" id="exp-amount" placeholder="₱" min="0" step="0.01" required style="max-width:90px">
+              <input type="text" id="exp-title" list="suggestions-exp-title" placeholder="What was it?" aria-label="Transaction name" required maxlength="140">
+              <input type="number" id="exp-amount" placeholder="₱" aria-label="Amount in Philippine pesos" min="0" step="0.01" required style="max-width:90px">
             </div>
+            ${UI.suggestions('exp-title', 'Transaction name', transactionSuggestions)}
             <div class="row">
-              <select id="exp-category">${CATEGORIES.map((c) => `<option>${c}</option>`).join('')}</select>
-              <select id="exp-kind">
+              <select id="exp-category" aria-label="Transaction category">${CATEGORIES.map((c) => `<option>${c}</option>`).join('')}</select>
+              <select id="exp-kind" aria-label="Entry type">
                 <option value="expense">Expense</option>
                 <option value="income">Income</option>
               </select>
@@ -321,6 +344,12 @@ const PageMoney = (() => {
   }
 
   function savingsHtml(funds, date) {
+    const suggestions = [
+      ...funds.map((fund) => fund.title),
+      'Emergency fund',
+      'Travel fund',
+      'New computer',
+    ];
     return `
       <div class="panel panel-accent savings-panel" style="--accent:var(--excellent)">
         <div class="panel-title">
@@ -331,9 +360,10 @@ const PageMoney = (() => {
         ${funds.length ? funds.map(savingsFundRow).join('') : '<p class="empty-state">Create a fund for an emergency cushion, travel, annual fees, or another goal.</p>'}
         <form class="add-form" id="savings-fund-form">
           <div class="row">
-            <input id="savings-fund-title" type="text" required maxlength="140" placeholder="Fund name (e.g. Emergency savings)">
-            <input id="savings-fund-target" type="number" min="0.01" max="9999999999.99" step="0.01" required placeholder="Target amount">
+            <input id="savings-fund-title" type="text" list="suggestions-savings-fund-title" required maxlength="140" placeholder="Fund name (e.g. Emergency savings)" aria-label="Savings goal name">
+            <input id="savings-fund-target" type="number" min="0.01" max="9999999999.99" step="0.01" required placeholder="Target amount" aria-label="Savings target in Philippine pesos">
           </div>
+          ${UI.suggestions('savings-fund-title', 'Savings goal name', suggestions)}
           <button type="submit" class="btn btn-primary btn-sm">Create savings fund</button>
         </form>
         <p class="meta">Fund activity uses the selected date: ${DateUtil.label(date)}.</p>

@@ -83,7 +83,8 @@ test('profile picture is saved and visible across every app tab', async ({ page 
 
   await page.reload();
   await expect(profileImage).toBeVisible();
-  await page.locator('.nav-item[href="#/"]').click();
+  await page.locator('.desktop-sidebar a[data-route="/"]').click();
+  await page.locator('.dashboard-secondary summary').click();
   await expect(page.locator('#share-preview canvas')).toBeVisible();
   const pdfPopupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Save as PDF' }).click();
@@ -92,7 +93,7 @@ test('profile picture is saved and visible across every app tab', async ({ page 
   await expect(pdfPage.locator('img')).toHaveAttribute('alt', /@avatar_test_/);
   await pdfPage.close();
   for (const route of ['#/', '#/tasks', '#/money', '#/body', '#/schedule', '#/stats', '#/goals']) {
-    await page.locator(`.nav-item[href="${route}"]`).click();
+    await page.locator(`.desktop-sidebar a[data-route="${route.slice(1)}"]`).click();
     await expect(profileImage).toBeVisible();
   }
 
@@ -149,6 +150,9 @@ test('dashboard shows daily priorities and prioritizes every upcoming event', as
   await expect(dailyStats).toContainText('Money spent');
   await expect(dailyStats).toContainText('Body & meals');
   await expect(dailyStats).toContainText('Agenda');
+  await page.locator('[data-skip-onboarding]').click();
+  await expect(page.locator('.home-next-step')).toContainText('Start with one small win');
+  await expect(page.locator('.home-next-actions a')).toHaveCount(2);
 
   const { nearDate, farDate } = await page.evaluate(() => ({
     nearDate: DateUtil.addDays(DateUtil.today(), 1),
@@ -160,7 +164,7 @@ test('dashboard shows daily priorities and prioritizes every upcoming event', as
     await Api.post('/schedule', { item_date: nearDate, title: 'Sooner appointment', start_time: '08:00' });
   }, { nearDate, farDate });
   await page.reload();
-  await page.locator('.nav-item[href="#/"]').click();
+  await page.locator('.desktop-sidebar a[data-route="/"]').click();
   const upcomingItems = page.locator('.upcoming-event');
   await expect(upcomingItems).toHaveCount(3);
   await expect(upcomingItems.nth(0)).toContainText('Sooner appointment');
@@ -187,7 +191,10 @@ test('quick add clearly labels task and expense fields and saves them', async ({
   await page.getByRole('button', { name: 'Quick add' }).click();
   const dialog = page.getByRole('dialog', { name: 'Quick add' });
   await expect(dialog).toContainText(`For ${await page.evaluate(() => DateUtil.label(AppState.date))}`);
-  await expect(dialog.getByLabel('Task name')).toBeVisible();
+  await expect(dialog.locator('#qa-title')).toBeVisible();
+  await expect(dialog.getByRole('group', { name: 'Task name suggestions' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Take a short walk' }).click();
+  await expect(dialog.locator('#qa-title')).toHaveValue('Take a short walk');
   await expect(dialog.getByLabel('When?')).toHaveValue('AM');
   await expect(dialog.getByLabel('Points (10 by default)')).toHaveValue('10');
   await dialog.getByRole('button', { name: 'Close quick add' }).click();
@@ -195,20 +202,27 @@ test('quick add clearly labels task and expense fields and saves them', async ({
 
   const taskName = `Quick task ${suffix}`;
   await page.getByRole('button', { name: 'Quick add' }).click();
-  await page.getByLabel('Task name').fill(taskName);
+  await page.locator('#qa-title').fill(taskName);
   await page.getByRole('button', { name: 'Add task' }).click();
-  await page.locator('.nav-item[href="#/tasks"]').click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
   await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
+  const taskSuggestionGroup = page.getByRole('group', { name: 'Morning task suggestions' });
+  await expect(taskSuggestionGroup).toContainText(taskName);
+  await taskSuggestionGroup.getByRole('button', { name: taskName, exact: true }).click();
+  await expect(page.locator('#task-title-AM')).toHaveValue(taskName);
 
   const expenseName = `Quick expense ${suffix}`;
   await page.getByRole('button', { name: 'Quick add' }).click();
   const expenseTab = page.getByRole('button', { name: 'Expense', exact: true });
   await expenseTab.click();
   await expect(expenseTab).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('group', { name: 'Expense name suggestions' })).toBeVisible();
+  await page.getByRole('button', { name: 'Groceries', exact: true }).click();
+  await expect(page.getByLabel('What was the expense?')).toHaveValue('Groceries');
   await page.getByLabel('What was the expense?').fill(expenseName);
   await page.getByLabel('Amount (₱)').fill('125');
   await page.getByRole('button', { name: 'Log expense' }).click();
-  await page.locator('.nav-item[href="#/money"]').click();
+  await page.locator('.desktop-sidebar a[data-route="/money"]').click();
   await expect(page.locator('.list-item .title').filter({ hasText: expenseName })).toBeVisible();
 });
 
@@ -275,19 +289,19 @@ test('new user can sign up, add a task, and keep it after reload', async ({ page
   await expect(page.locator('#main-screen')).toBeVisible();
   await page.waitForLoadState('networkidle');
 
-  await page.getByRole('link', { name: /Tasks/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
   await page.waitForLoadState('networkidle');
   const taskName = `Browser task ${suffix}`;
   const form = page.locator('form[data-add="AM"]');
   await page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }));
   await form.locator('input[type="text"]').fill(taskName);
   await form.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
   expect(await page.evaluate(() => Api.queueCount())).toBe(0);
 
   await page.reload();
-  await page.getByRole('link', { name: /Tasks/ }).click();
-  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
+  await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
 
   const overdueTask = `Carry-over ${suffix}`;
   const overdueDate = await page.evaluate(() => DateUtil.addDays(DateUtil.today(), -1));
@@ -331,14 +345,14 @@ test('safe offline creates and deletes queue and sync after reconnect; bill acti
   await page.locator('#signup-email').fill(email);
   await page.locator('#signup-password').fill('offline-test-password-long-enough');
   await page.getByRole('button', { name: 'Create account' }).click();
-  await page.getByRole('link', { name: /Tasks/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
 
   const form = page.locator('form[data-add="AM"]');
   await expect(form).toBeVisible();
   const savedTaskName = `Saved online task ${suffix}`;
   await form.locator('input[type="text"]').fill(savedTaskName);
   await form.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByText(savedTaskName, { exact: true })).toBeVisible();
+  await expect(page.locator('.list-item .title').filter({ hasText: savedTaskName })).toBeVisible();
 
   await context.setOffline(true);
   const taskName = `Offline task ${suffix}`;
@@ -355,8 +369,8 @@ test('safe offline creates and deletes queue and sync after reconnect; bill acti
   await context.setOffline(false);
   await expect(page.locator('#connectivity-status')).toBeHidden({ timeout: 10000 });
   await page.reload();
-  await page.getByRole('link', { name: /Tasks/ }).click();
-  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
+  await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
   const taskId = await page.locator('[data-del]').first().getAttribute('data-del');
   await context.setOffline(true);
   // Simple deletes now queue too and sync later.
@@ -391,10 +405,10 @@ test('calendar import previews events, adds them once, and skips duplicates', as
   await page.locator('#signup-email').fill(email);
   await page.locator('#signup-password').fill('calendar-test-password-long-enough');
   await page.getByRole('button', { name: 'Create account' }).click();
-  await page.getByRole('link', { name: /Agenda/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/schedule"]').click();
 
-  const now = new Date();
-  const eventDate = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const eventDate = await page.evaluate(() => DateUtil.today().replace(/-/g, ''));
+  const eventDateKey = `${eventDate.slice(0, 4)}-${eventDate.slice(4, 6)}-${eventDate.slice(6, 8)}`;
   const calendar = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -413,7 +427,8 @@ test('calendar import previews events, adds them once, and skips duplicates', as
   await expect(page.locator('#calendar-preview')).toContainText('1 new event');
   await page.getByRole('button', { name: 'Add these events' }).click();
   await page.getByRole('button', { name: 'Confirm' }).click();
-  await expect(page.getByText(`Imported planning ${suffix}`, { exact: true })).toBeVisible();
+  await page.locator(`.mini-day[data-date="${eventDateKey}"]`).click();
+  await expect(page.locator('.agenda-item .title').filter({ hasText: `Imported planning ${suffix}` })).toBeVisible();
 
   // The agenda re-renders after an import, which clears the file picker and any preview.
   // Retry choosing the file and previewing until a render does not interrupt it.
@@ -491,14 +506,41 @@ async function signUpFresh(page, context, label) {
   return { suffix, email };
 }
 
+test('mobile navigation keeps common sections visible and reveals the rest from More', async ({ page, context }) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await signUpFresh(page, context, 'mobile-navigation');
+
+  const nav = page.getByRole('navigation', { name: 'Primary navigation' });
+  const more = nav.getByRole('button', { name: 'More' });
+  const menu = page.getByRole('navigation', { name: 'More sections' });
+  await expect(nav.getByRole('link')).toHaveCount(4);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await nav.getByRole('link').first().evaluate((link) => link.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  await expect(menu).toBeHidden();
+
+  await more.click();
+  await expect(more).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('link', { name: 'Body' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(more).toBeFocused();
+
+  await more.click();
+  await menu.getByRole('link', { name: 'Body' }).click();
+  await expect(page.locator('#content .body-hero')).toBeVisible();
+  await expect(page.locator('#content')).toBeFocused();
+  await expect(menu).toBeHidden();
+  await expect(more).toHaveClass(/active/);
+});
+
 test('installed app reopens offline from its saved copy and says how old that copy is', async ({ page, context }) => {
   const { suffix } = await signUpFresh(page, context, 'reopen');
-  await page.getByRole('link', { name: /Tasks/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
   const form = page.locator('form[data-add="AM"]');
   const taskName = `Saved before going offline ${suffix}`;
   await form.locator('input[type="text"]').fill(taskName);
   await form.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
   await expect.poll(() => page.evaluate(() => new Promise((resolve, reject) => {
     const open = indexedDB.open('selfup-offline');
     open.onerror = () => reject(open.error);
@@ -523,7 +565,7 @@ test('installed app reopens offline from its saved copy and says how old that co
     await page.locator(`a[data-route="${route}"]`).click();
     await expect(page.locator(`#content ${selector}`)).toBeVisible();
   }
-  await page.getByRole('link', { name: /Tasks/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
   await page.waitForLoadState('networkidle');
 
   // The service worker must be controlling the page, and the app shell must be cached.
@@ -552,8 +594,8 @@ test('installed app reopens offline from its saved copy and says how old that co
   expect(offlineDashboardData.week).toHaveProperty('previousWeekly');
   expect(offlineDashboardData.week).toHaveProperty('pendingAgenda');
   expect(offlineDashboardData.totals).toHaveProperty('xpPerLevel', 500);
-  await page.getByRole('link', { name: /Tasks/ }).click();
-  await expect(page.getByText(taskName, { exact: true })).toBeVisible();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
+  await expect(page.locator('.list-item .title').filter({ hasText: taskName })).toBeVisible();
   await expect(page.locator('#connectivity-status')).toContainText('Showing saved data');
   await expect(page.locator('#connectivity-status')).toContainText('was saved');
   const savedAccountTasks = await page.evaluate(async () => (await Api.get('/export')).tasks.map((task) => task.title));
@@ -567,7 +609,7 @@ test('installed app reopens offline from its saved copy and says how old that co
   await context.setOffline(false);
   await expect(page.locator('#connectivity-status')).toBeHidden({ timeout: 20000 });
   const userId = await page.evaluate(() => String(Api.getUser().id));
-  await page.getByRole('link', { name: /Settings/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/settings"]').click();
   await page.locator('#settings-logout').click();
   await expect(page.locator('#auth-screen')).toBeVisible();
   await expect.poll(() => page.evaluate((id) => new Promise((resolve, reject) => {
@@ -583,7 +625,7 @@ test('installed app reopens offline from its saved copy and says how old that co
 
 test('a change the server refuses is held for review while valid changes still sync', async ({ page, context }) => {
   const { suffix } = await signUpFresh(page, context, 'rejected');
-  await page.getByRole('link', { name: /Tasks/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
   await page.waitForLoadState('networkidle');
 
   await context.setOffline(true);
@@ -615,14 +657,14 @@ test('a change the server refuses is held for review while valid changes still s
 
 test('encrypted exports stay out of page cache while full account copy is stored separately', async ({ page, context }) => {
   const { suffix, email } = await signUpFresh(page, context, 'backup');
-  await page.getByRole('link', { name: /Tasks/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
   const secretTask = `Private task ${suffix}`;
   const form = page.locator('form[data-add="AM"]');
   await form.locator('input[type="text"]').fill(secretTask);
   await form.getByRole('button', { name: 'Add' }).click();
-  await expect(page.getByText(secretTask, { exact: true })).toBeVisible();
+  await expect(page.locator('.list-item .title').filter({ hasText: secretTask })).toBeVisible();
 
-  await page.getByRole('link', { name: /Settings/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/settings"]').click();
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#export-data').click();
   const passphrase = 'correct horse battery staple';
@@ -676,10 +718,10 @@ test('first-run screen explains where data lives and offers sample entries', asy
   await onboarding.getByRole('button', { name: 'Explore with sample entries' }).click();
   await expect(page.locator('.onboarding')).toHaveCount(0);
 
-  await page.getByRole('link', { name: /Tasks/ }).click();
-  await expect(page.getByText('Sample: plan a calm start', { exact: true })).toBeVisible();
+  await page.locator('.desktop-sidebar a[data-route="/tasks"]').click();
+  await expect(page.locator('.list-item .title').filter({ hasText: 'Sample: plan a calm start' })).toBeVisible();
 
-  await page.getByRole('link', { name: /Settings/ }).click();
+  await page.locator('.desktop-sidebar a[data-route="/settings"]').click();
   await expect(page.locator('#data-location')).toContainText('Stored on this computer');
   await expect(page.locator('#sample-data-status')).toContainText('example entries are currently loaded');
 });

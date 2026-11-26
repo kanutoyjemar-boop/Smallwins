@@ -217,6 +217,37 @@ function loadSignupConfig() {
 
 document.getElementById('fab').addEventListener('click', () => UI.quickAdd());
 
+const moreMenuButton = document.querySelector('.more-nav-toggle');
+const moreMenu = document.getElementById('mobile-more-menu');
+
+function closeMoreMenu(restoreFocus = false) {
+  if (!moreMenu || !moreMenuButton || moreMenu.classList.contains('hidden')) return;
+  moreMenu.classList.add('hidden');
+  moreMenuButton.setAttribute('aria-expanded', 'false');
+  if (restoreFocus) moreMenuButton.focus();
+}
+
+moreMenuButton.addEventListener('click', () => {
+  const isOpening = moreMenu.classList.contains('hidden');
+  moreMenu.classList.toggle('hidden', !isOpening);
+  moreMenuButton.setAttribute('aria-expanded', String(isOpening));
+  if (isOpening) moreMenu.querySelector('a')?.focus();
+});
+
+document.addEventListener('click', (event) => {
+  if (!moreMenu.classList.contains('hidden')
+      && !moreMenu.contains(event.target)
+      && !moreMenuButton.contains(event.target)) {
+    closeMoreMenu();
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !moreMenu.classList.contains('hidden')) {
+    closeMoreMenu(true);
+  }
+});
+
 document.getElementById('show-signup').addEventListener('click', (e) => {
   e.preventDefault();
   loadSignupConfig().then((config) => {
@@ -436,10 +467,13 @@ function renderRoute() {
   const content = document.getElementById('content');
 
   document.querySelectorAll('.nav-item').forEach((a) => {
-    a.classList.toggle('active', a.dataset.route === path);
-    if (a.dataset.route === path) a.setAttribute('aria-current', 'page');
+    const itemPath = a.dataset.route || (a.getAttribute('href') || '').replace(/^#/, '');
+    a.classList.toggle('active', itemPath === path);
+    if (itemPath === path) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
+  moreMenuButton.classList.toggle('active', ['/body', '/stats', '/goals', '/settings'].includes(path));
+  if (!['/body', '/stats', '/goals', '/settings'].includes(path)) closeMoreMenu();
   UI.movePill();
 
   const renderer = routes[path];
@@ -461,7 +495,12 @@ function renderRoute() {
 }
 
 window.renderRoute = renderRoute;
-window.addEventListener('hashchange', renderRoute);
+window.addEventListener('hashchange', () => {
+  const focusContent = !moreMenu.classList.contains('hidden') && moreMenu.contains(document.activeElement);
+  closeMoreMenu();
+  renderRoute();
+  if (focusContent) document.getElementById('content').focus();
+});
 
 // ---------------- Boot ----------------
 (function boot() {

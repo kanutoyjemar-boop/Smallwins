@@ -68,6 +68,39 @@
 
   <!-- Main app -->
   <div id="main-screen" class="main-screen hidden">
+    <aside class="desktop-sidebar" aria-label="App navigation">
+      <a class="sidebar-brand" href="#/" aria-label="Small Wins home">
+        <span class="brand-mark" aria-hidden="true">SW</span>
+        <span><strong>Small Wins</strong><small>Build a life that feels good</small></span>
+      </a>
+      <p class="sidebar-label">YOUR SPACE</p>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <a href="#/" class="nav-item" data-route="/">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5M6 10v9h5v-5h2v5h5v-9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span>
+        </a>
+        <a href="#/tasks" class="nav-item" data-route="/tasks">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 11l2 2 4-4M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tasks</span>
+        </a>
+        <a href="#/money" class="nav-item" data-route="/money">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.2-5 3 2.2 2.7 5 3 5 1.1 5 3-2.2 3-5 3-5-1.1-5-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Money</span>
+        </a>
+        <a href="#/body" class="nav-item" data-route="/body">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 6.5 4 9l3 3-3 3 2.5 2.5L9 15l3 3 3-3 2.5 2.5L20 15l-3-3 3-3-2.5-2.5L15 9l-3-3-3 3z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Body</span>
+        </a>
+        <a href="#/schedule" class="nav-item" data-route="/schedule">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Agenda</span>
+        </a>
+        <a href="#/stats" class="nav-item" data-route="/stats">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19V10M12 19V5M19 19v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Progress</span>
+        </a>
+        <a href="#/goals" class="nav-item" data-route="/goals">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 12.5h10M7 8h10M7 17h6M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Goals</span>
+        </a>
+      </nav>
+      <a href="#/settings" class="sidebar-settings nav-item" data-route="/settings">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M4 12h1.5M18.5 12H20M12 4v1.5M12 18.5V20M6.3 6.3l1.1 1.1M16.6 16.6l1.1 1.1M6.3 17.7l1.1-1.1M16.6 7.4l1.1-1.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>Settings</span>
+      </a>
+    </aside>
     <header class="topbar">
       <a class="app-brand" href="#/" aria-label="Small Wins home, developed by Your Trusted Guy">
         <strong>Small Wins</strong>
@@ -97,34 +130,32 @@
 
     <button id="fab" class="fab" type="button" aria-label="Quick add"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
     <nav class="bottom-nav" aria-label="Primary navigation">
-      <a href="#/" class="nav-item" data-route="/">
+      <a href="#/" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 4l8 7.5M6 10v9h5v-5h2v5h5v-9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Home</span>
       </a>
-      <a href="#/tasks" class="nav-item" data-route="/tasks">
+      <a href="#/tasks" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none"><path d="M9 11l2 2 4-4M5 5h14v14H5z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Tasks</span>
       </a>
-      <a href="#/money" class="nav-item" data-route="/money">
+      <a href="#/money" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none"><path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.2-5 3 2.2 2.7 5 3 5 1.1 5 3-2.2 3-5 3-5-1.1-5-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Money</span>
       </a>
-      <a href="#/body" class="nav-item" data-route="/body">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 6.5 4 9l3 3-3 3 2.5 2.5L9 15l3 3 3-3 2.5 2.5L20 15l-3-3 3-3-2.5-2.5L15 9l-3-3-3 3z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Body</span>
-      </a>
-      <a href="#/schedule" class="nav-item" data-route="/schedule">
+      <a href="#/schedule" class="nav-item">
         <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Agenda</span>
       </a>
-      <a href="#/stats" class="nav-item" data-route="/stats">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M5 19V10M12 19V5M19 19v-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <span>Stats</span>
-      </a>
-      <a href="#/goals" class="nav-item" data-route="/goals">
-        <svg viewBox="0 0 24 24" fill="none"><path d="M7 12.5h10M7 8h10M7 17h6M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 19 19.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Goals</span>
-      </a>
+      <button class="more-nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-more-menu">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
+        <span>More</span>
+      </button>
+    </nav>
+    <nav id="mobile-more-menu" class="mobile-more-menu hidden" aria-label="More sections">
+      <a href="#/body" class="nav-item"><span class="more-menu-icon" aria-hidden="true">◈</span><span>Body</span></a>
+      <a href="#/stats" class="nav-item"><span class="more-menu-icon" aria-hidden="true">↗</span><span>Progress</span></a>
+      <a href="#/goals" class="nav-item"><span class="more-menu-icon" aria-hidden="true">◎</span><span>Goals</span></a>
+      <a href="#/settings" class="nav-item"><span class="more-menu-icon" aria-hidden="true">⚙</span><span>Settings</span></a>
     </nav>
   </div>
 </div>

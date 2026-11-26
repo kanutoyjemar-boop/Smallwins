@@ -13,6 +13,18 @@ const PageGoals = (() => {
   }
 
   function template(date, goals, insights, recovery, recoveryWeek) {
+    const goalSuggestions = [
+      ...goals.map((goal) => goal.title),
+      'Drink more water',
+      'Read for 10 minutes',
+      'Take a short walk',
+    ];
+    const focusSuggestions = [
+      insights.focus,
+      'Make time for movement',
+      'Get enough rest',
+      'Finish one important task',
+    ];
     const weekly = insights.weekly || { activeDays: 0, average: 0, bestDay: null, completionRate: 0 };
     const previous = insights.previousWeekly || { activeDays: 0, average: 0 };
     const recap = insights.recap || {
@@ -83,8 +95,9 @@ const PageGoals = (() => {
           <p>${escapeHtml(coachTip)}</p>
         </div>
         <label style="display:block; margin-top:12px">This week’s focus
-          <input type="text" id="week-focus" maxlength="140" placeholder="The one habit or outcome that matters most" value="${escapeHtml(insights.focus || '')}">
+          <input type="text" id="week-focus" list="suggestions-week-focus" maxlength="140" placeholder="The one habit or outcome that matters most" value="${escapeHtml(insights.focus || '')}">
         </label>
+        ${UI.suggestions('week-focus', 'Weekly focus', focusSuggestions)}
         <details class="rest-day-planner">
           <summary>Choose intentional rest days</summary>
           <p class="meta">Rest is part of a sustainable plan. Empty days stay unscored rather than counting against you.</p>
@@ -142,11 +155,13 @@ const PageGoals = (() => {
         <div class="section-label" style="margin-top:0">Daily focus goals</div>
         ${!goals.length ? '<p class="empty-state">Nothing scheduled yet. Add your next win.</p>' : goals.map(goalRow).join('')}
         <form class="add-form" id="goal-form">
-          <input type="text" id="goal-title" placeholder="Goal for today" required maxlength="140">
+          <input type="text" id="goal-title" list="suggestions-goal-title" placeholder="What would you like to work toward?" required maxlength="140">
+          ${UI.suggestions('goal-title', 'Goal name', goalSuggestions)}
           <div class="row">
             <input type="number" id="goal-target" placeholder="Target" min="1" value="1">
-            <input type="text" id="goal-unit" placeholder="times" value="times">
+            <input type="text" id="goal-unit" list="suggestions-goal-unit" placeholder="times" value="times" aria-label="Goal unit, such as times or minutes">
           </div>
+          ${UI.suggestions('goal-unit', 'Goal unit', ['times', 'minutes', 'pages', 'glasses', 'kilometers'])}
           <button type="submit" class="btn btn-primary btn-sm">Add goal</button>
         </form>
       </div>
@@ -163,7 +178,9 @@ const PageGoals = (() => {
             </select>
           </div>
           <textarea id="reflection-wins" rows="2" placeholder="What went well today?">${reflection ? escapeHtml(reflection.wins || '') : ''}</textarea>
+          ${UI.suggestionButtons('reflection-wins', 'Reflection ideas', ['I made time to rest', 'I finished one thing', 'I asked for help'])}
           <textarea id="reflection-note" rows="3" placeholder="One honest note for tomorrow...">${reflection ? escapeHtml(reflection.note || '') : ''}</textarea>
+          ${UI.suggestionButtons('reflection-note', 'Notes for tomorrow', ['Tomorrow I can start by…', 'One thing I want to remember…', 'What would make tomorrow easier?'])}
           <button type="submit" class="btn btn-primary btn-sm">Save reflection</button>
         </form>
       </div>

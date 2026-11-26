@@ -60,13 +60,23 @@ router.get('/', async (req, res) => {
   let result;
   if (start && end) {
     result = await pool.query(
-      'SELECT * FROM schedule_items WHERE user_id = $1 AND item_date BETWEEN $2 AND $3 ORDER BY item_date, start_time NULLS LAST, id',
+      `SELECT id, user_id, to_char(item_date, 'YYYY-MM-DD') AS item_date, title, location,
+              to_char(start_time, 'HH24:MI:SS') AS start_time, planned_minutes, actual_minutes,
+              status, points, created_at
+       FROM schedule_items
+       WHERE user_id = $1 AND item_date BETWEEN $2 AND $3
+       ORDER BY item_date, start_time NULLS LAST, id`,
       [req.userId, start, end]
     );
   } else {
     const d = date || todayKey();
     result = await pool.query(
-      'SELECT * FROM schedule_items WHERE user_id = $1 AND item_date = $2 ORDER BY start_time NULLS LAST, id',
+      `SELECT id, user_id, to_char(item_date, 'YYYY-MM-DD') AS item_date, title, location,
+              to_char(start_time, 'HH24:MI:SS') AS start_time, planned_minutes, actual_minutes,
+              status, points, created_at
+       FROM schedule_items
+       WHERE user_id = $1 AND item_date = $2
+       ORDER BY start_time NULLS LAST, id`,
       [req.userId, d]
     );
   }

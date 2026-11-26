@@ -86,6 +86,14 @@ const PageBody = (() => {
       Api.get(`/workouts?date=${date}`),
       Api.get('/templates?kind=workouts'),
     ]);
+    const exerciseSuggestions = [
+      ...workouts.flatMap((workout) => Array.isArray(workout.exercises)
+        ? workout.exercises.map((exercise) => exercise.name)
+        : []),
+      'Squat',
+      'Push-up',
+      'Bench press',
+    ];
     const done = workouts.filter((w) => w.done).length;
     const totalMinutes = workouts.reduce((sum, w) => sum + Number(w.duration_minutes || 0), 0);
     const totalDistance = workouts.reduce((sum, w) => sum + Number(w.distance_km || 0), 0);
@@ -137,7 +145,7 @@ const PageBody = (() => {
               <option value="Running (Cardio)">Running (Cardio)</option>
               <optgroup label="Other activities">${OTHER_ACTIVITIES.map((a) => `<option>${escapeHtml(a)}</option>`).join('')}</optgroup>
             </select>
-            <input type="number" id="w-duration" placeholder="minutes" min="0" step="1" aria-label="Duration in minutes">
+            <input type="number" id="w-duration" placeholder="Minutes (optional)" min="0" step="1" aria-label="Workout duration in minutes, optional">
           </div>
           <div class="row" id="gym-fields" hidden>
             <label class="sr-only" for="w-split">Strength split</label>
@@ -145,8 +153,9 @@ const PageBody = (() => {
               <option>Push</option><option>Pull</option><option>Legs</option><option>Full body</option><option>Other</option>
             </select>
             <label class="sr-only" for="w-exercise-name">Exercise name</label>
-            <input id="w-exercise-name" type="text" placeholder="Exercise (e.g. bench press)" maxlength="80">
+            <input id="w-exercise-name" type="text" list="suggestions-w-exercise-name" placeholder="Exercise (e.g. bench press)" maxlength="80">
           </div>
+          <div id="gym-suggestion-wrap" hidden>${UI.suggestions('w-exercise-name', 'Exercise', exerciseSuggestions)}</div>
           <div class="row gym-exercise-inputs" id="gym-fields-details" hidden>
             <label class="sr-only" for="w-exercise-sets">Sets</label>
             <input id="w-exercise-sets" type="number" placeholder="Sets" min="1" max="100" step="1">
@@ -167,7 +176,7 @@ const PageBody = (() => {
             <label class="sr-only" for="w-steps">Steps from your watch</label>
             <input type="number" id="w-steps" placeholder="Steps (optional)" min="0" max="1000000" step="1">
           </div>
-          <input type="text" id="w-notes" placeholder="Focus / notes (optional)" maxlength="160">
+          <input type="text" id="w-notes" placeholder="Focus or notes (optional)" maxlength="160" aria-label="Workout focus or notes, optional">
           <button type="submit" class="btn btn-primary btn-sm">Add workout</button>
         </form>
       </div>
@@ -242,6 +251,7 @@ const PageBody = (() => {
     const updateActivityFields = () => {
       const isGym = activitySelect.value === 'Gym (Strength)';
       el.querySelector('#gym-fields').hidden = !isGym;
+      el.querySelector('#gym-suggestion-wrap').hidden = !isGym;
       el.querySelector('#gym-fields-details').hidden = !isGym;
       el.querySelector('#gym-add-exercise-wrap').hidden = !isGym;
       el.querySelector('#running-fields').hidden = !DISTANCE_ACTIVITIES.has(activitySelect.value);
@@ -378,6 +388,13 @@ const PageBody = (() => {
     const consumed = entries.filter((d) => d.eaten);
     const kcal = consumed.reduce((sum, d) => sum + Number(d.calories || 0), 0);
     const protein = consumed.reduce((sum, d) => sum + Number(d.protein_grams || 0), 0);
+    const foodSuggestions = [
+      ...entries.map((entry) => entry.food),
+      ...PROTEIN_GUIDE.map((item) => item.food),
+      'Rice',
+      'Oatmeal',
+      'Eggs',
+    ];
     el.innerHTML = `
       ${heroRing(eaten, entries.length, protein.toFixed(1) + ' g protein', entries.length ? eaten + ' of ' + entries.length + ' meals logged' : 'Track only what feels useful', 'Fuel today')}
       <div class="panel panel-accent body-summary-panel" style="--accent:var(--body)">
@@ -393,10 +410,11 @@ const PageBody = (() => {
         ${entries.length ? entries.map(dietRow).join('') : '<p class="empty-state">Nothing logged here yet. Track a meal only if it’s useful to you.</p>'}
         <form class="add-form" id="diet-form">
           <div class="row">
-            <select id="d-meal">${MEALS.map((m) => `<option>${m}</option>`).join('')}</select>
+            <select id="d-meal" aria-label="Meal time">${MEALS.map((m) => `<option>${m}</option>`).join('')}</select>
             <input type="number" id="d-cal" placeholder="kcal (optional)" min="0" style="max-width:120px">
           </div>
-          <input type="text" id="d-food" placeholder="What should you eat?" required maxlength="160">
+          <input type="text" id="d-food" list="suggestions-d-food" placeholder="Meal or food name" aria-label="Meal or food name" required maxlength="160">
+          ${UI.suggestions('d-food', 'Food name', foodSuggestions)}
           <div class="row">
             <input type="number" id="d-protein" placeholder="Protein (g)" min="0" max="1000" step="0.1" aria-label="Protein in grams">
             <select id="d-guide" aria-label="Optional food protein estimate">

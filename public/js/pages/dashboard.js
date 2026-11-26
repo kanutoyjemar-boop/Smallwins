@@ -118,7 +118,7 @@ const PageDashboard = (() => {
       ${date === DateUtil.today() && (pendingTasks.length || pendingAgenda.length) ? `
         <button class="daily-brief-trigger" id="open-daily-brief" type="button">
           <span class="daily-brief-icon" aria-hidden="true">✓</span>
-          <span><strong>Today’s plan · ${pendingTasks.length + pendingAgenda.length} planned</strong><small>Take a look whenever you’re ready</small></span>
+          <span><strong>Today’s plan · ${pendingTasks.length + pendingAgenda.length} still open</strong><small>Choose any one item; you can do the rest later.</small></span>
           <span class="daily-brief-arrow" aria-hidden="true">›</span>
         </button>
         ${dailyBriefModal(pendingTasks, pendingAgenda)}
@@ -229,12 +229,13 @@ const PageDashboard = (() => {
     const userId = (Api.getUser() || {}).id;
     if (!empty || date !== DateUtil.today() || localStorage.getItem(`selfup_onboarded_${userId}`)) return '';
     return `<div class="panel onboarding"><div class="panel-title"><h3>Welcome — start small</h3></div>
-      <p class="rating-sub" style="margin:0 0 12px">Preview a starter task plan, then edit or skip any item. These add tasks only.</p>
+      <p class="rating-sub" style="margin:0 0 12px">Choose a ready-to-edit task plan, or skip and add things as you go. You can explore Money, Body, Agenda, and Goals whenever you like; nothing is required. Starter plans add tasks only.</p>
       <div class="starter-row">${Object.keys(STARTERS).map((k) => `<button class="btn btn-ghost" data-starter="${k}" type="button" aria-pressed="false">${k}</button>`).join('')}</div>
       <div id="starter-preview" class="starter-preview" aria-live="polite" hidden></div>
-      <label class="onboarding-focus">Optional weekly focus
-        <input type="text" maxlength="140" id="onboarding-focus" placeholder="For example: make time for movement">
+      <label class="onboarding-focus">Optional weekly focus — a reminder, not a requirement
+        <input type="text" maxlength="140" id="onboarding-focus" list="suggestions-onboarding-focus" placeholder="For example: make time for movement">
       </label>
+      ${UI.suggestions('onboarding-focus', 'Weekly focus', ['Make time for movement', 'Get enough rest', 'Finish one important task'])}
       <div class="onboarding-sample">
         <button class="btn btn-ghost btn-sm" data-sample-onboarding type="button" ${navigator.onLine ? '' : 'disabled'}>Or explore with sample entries</button>
         <p class="meta">Sample entries affect your totals and can be removed in Settings.</p>
@@ -245,12 +246,34 @@ const PageDashboard = (() => {
 
   function homeNextStepHtml(data, date, onboarding) {
     const today = DateUtil.today();
-    const empty = !data.tasks.length && !data.workouts.length && !data.diet.length && !data.schedule.length;
-    if (date !== today || !empty || onboarding) return '';
+    if (date !== today || onboarding) return '';
+    const pendingTasks = data.tasks.filter((task) => !task.done).length;
+    const pendingAgenda = data.schedule.filter((item) => item.status === 'pending').length;
+    if (pendingTasks + pendingAgenda > 0) return '';
+    const pendingWorkouts = data.workouts.filter((workout) => !workout.done).length;
+    const pendingMeals = data.diet.filter((meal) => !meal.eaten).length;
+    const openCount = pendingTasks + pendingAgenda + pendingWorkouts + pendingMeals;
+    const hasOpenItems = openCount > 0;
+    const title = hasOpenItems
+      ? 'Choose one thing to do next'
+      : data.tasks.length || data.schedule.length
+        ? 'You’re caught up for now'
+        : 'Start with one small win';
+    const description = hasOpenItems
+      ? `There ${openCount === 1 ? 'is' : 'are'} ${openCount} planned ${openCount === 1 ? 'item' : 'items'} still open. Pick any one; you can do the rest later.`
+      : 'Add a task or plan an event only if it would make today easier. Rest and open space count, too.';
+    const bodyAction = pendingWorkouts || pendingMeals
+      ? '<a class="btn btn-ghost btn-sm" href="#/body">See movement &amp; meals</a>'
+      : '';
     return `<section class="panel home-next-step" aria-labelledby="home-next-step-title">
-      <h3 id="home-next-step-title">Not sure where to start?</h3>
-      <p>One small task is plenty. You can build the rest of your day later.</p>
-      <a class="btn btn-primary btn-sm" href="#/tasks">Add one task</a>
+      <span class="eyebrow">START HERE</span>
+      <h3 id="home-next-step-title">${title}</h3>
+      <p>${description}</p>
+      <div class="home-next-actions">
+        <a class="btn btn-primary btn-sm" href="#/tasks">${pendingTasks ? 'See your tasks' : 'Add a small task'}</a>
+        <a class="btn btn-ghost btn-sm" href="#/schedule">${pendingAgenda ? 'See your agenda' : 'Plan ahead'}</a>
+        ${bodyAction}
+      </div>
     </section>`;
   }
 

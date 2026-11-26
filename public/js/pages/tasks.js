@@ -60,6 +60,14 @@ const PageTasks = (() => {
     const progress = total ? Math.round((done / total) * 100) : 0;
     const pointsEarned = tasks.filter((t) => t.done).reduce((sum, t) => sum + Number(t.points || 0), 0);
     const pointsPossible = tasks.reduce((sum, t) => sum + Number(t.points || 0), 0);
+    const taskSuggestions = [
+      ...tasks.map((task) => task.title),
+      ...recurring.map((task) => task.title),
+      ...routines.flatMap((routine) => (routine.items || []).map((item) => item.title)),
+      'Drink a glass of water',
+      'Take a short walk',
+      'Read for 10 minutes',
+    ];
 
     return `
       <div class="panel task-summary-panel">
@@ -102,8 +110,8 @@ const PageTasks = (() => {
 
       ${recurringPanel(recurring)}
       ${!tasks.length ? `<button class="btn btn-ghost btn-block" id="copy-yesterday" type="button" style="margin-bottom:14px">Copy yesterday's tasks</button>` : ''}
-      ${periodPanel('AM', 'Morning focus', am, 'var(--tasks)')}
-      ${periodPanel('PM', 'Afternoon / evening', pm, 'var(--agenda)')}
+      ${periodPanel('AM', 'Morning focus', am, 'var(--tasks)', taskSuggestions)}
+      ${periodPanel('PM', 'Afternoon / evening', pm, 'var(--agenda)', taskSuggestions)}
     `;
   }
 
@@ -119,7 +127,7 @@ const PageTasks = (() => {
       ${list.map((r) => `<div class="list-item"><span class="repeat-ico" aria-hidden="true">↻</span><div class="grow"><div class="title">${escapeHtml(r.title)}</div><div class="meta">${repeatLabel(r.weekdays)} · ${r.period === 'AM' ? 'Morning' : 'Afternoon / evening'}</div></div><span class="pts-chip">+${r.points}</span><button class="icon-x" data-del-recurring="${r.id}" aria-label="Stop repeating">✕</button></div>`).join('')}</div>`;
   }
 
-  function periodPanel(period, title, list, accent) {
+  function periodPanel(period, title, list, accent, suggestions) {
     const done = list.filter((t) => t.done).length;
     const percent = list.length ? Math.round((done / list.length) * 100) : 0;
     return `
@@ -132,9 +140,11 @@ const PageTasks = (() => {
         ${list.length ? list.map((t) => taskRow(t)).join('') : '<p class="empty-state">Nothing planned here yet. Add a task if it would make your day easier.</p>'}
         <form class="add-form" data-add="${period}">
           <div class="row">
-            <input type="text" placeholder="Add a ${period === 'AM' ? 'morning' : 'afternoon'} task…" required maxlength="140">
-            <input type="number" placeholder="pts" value="10" min="1" max="100" style="max-width:64px">
+            <input type="text" id="task-title-${period}" list="suggestions-task-title-${period}" placeholder="Add a ${period === 'AM' ? 'morning' : 'afternoon'} task…" required maxlength="140" aria-label="${period === 'AM' ? 'Morning' : 'Afternoon or evening'} task name">
+            <input type="number" placeholder="Points" value="10" min="1" max="100" style="max-width:86px" aria-label="Progress points, from 1 to 100">
           </div>
+          ${UI.suggestions(`task-title-${period}`, `${period === 'AM' ? 'Morning' : 'Afternoon or evening'} task`, suggestions)}
+          <small class="meta">Points add weight to your daily progress score. 10 is a fine default.</small>
           <select class="repeat-select" aria-label="Repeat"><option value="">Doesn’t repeat</option><option value="daily">↻ Every day</option><option value="weekdays">↻ Weekdays</option><option value="weekends">↻ Weekends</option></select>
           <button type="submit" class="btn btn-primary btn-sm">Add</button>
         </form>

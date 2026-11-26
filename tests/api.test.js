@@ -5,6 +5,10 @@ const assert = require('node:assert/strict');
 const { closeResources, createApp } = require('../server');
 const { migrationVersions } = require('../db');
 
+test('legacy routes database entry point shares the main migration system', () => {
+  assert.strictEqual(require('../routes/db'), require('../db'));
+});
+
 async function withServer(database, run) {
   const appDatabase = {
     async query(sql, params) {
